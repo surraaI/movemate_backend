@@ -29,3 +29,36 @@ app/
   schemas/      # Pydantic v2 models (request/response)
   services/     # business logic (use-cases)
 ```
+
+## Database and Alembic setup
+
+1. Create `.env` from the example and set a real remote Postgres URL:
+
+```bash
+cp .env.example .env
+```
+
+Use this format for `DATABASE_URL`:
+
+```bash
+DATABASE_URL="postgresql+psycopg://<USER>:<PASSWORD>@<HOST>:<PORT>/<DB_NAME>?sslmode=require"
+```
+
+2. Install dependencies (includes Alembic + psycopg driver):
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Run migrations:
+
+```bash
+alembic upgrade head
+```
+
+4. (Optional) create a new migration after model changes:
+
+```bash
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head
+```
