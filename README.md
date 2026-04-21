@@ -42,6 +42,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Docs:
+
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
@@ -67,6 +68,7 @@ The routing module is implemented with a graph-inspired relational design:
 - `RouteStop` = ordered edge list (`route_id`, `stop_id`, `sequence`)
 
 Key guarantees:
+
 - stop name uniqueness
 - route code uniqueness
 - unique stop sequence per route
