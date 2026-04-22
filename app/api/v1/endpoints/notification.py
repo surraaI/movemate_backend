@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.services.notification_service import NotificationService
 from app.schemas.notification import NotificationCreate
-from movemate_backend.app.models.notification import Notification
+from app.models.notification import Notification
 
 router = APIRouter()
 
