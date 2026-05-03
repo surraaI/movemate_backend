@@ -1,10 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-<<<<<<< Updated upstream
-=======
 from pydantic import field_validator
 from pathlib import Path
->>>>>>> Stashed changes
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -17,21 +13,15 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "MoveMate API"
     VERSION: str = "0.1.0"
 
-<<<<<<< Updated upstream
-    DATABASE_URL: str = "sqlite:///./movemate.db"
-=======
     # 🔹 Database
     DATABASE_URL: str = "postgresql+psycopg://user:password@localhost:5432/movemate"
 
     # 🔹 Auth
->>>>>>> Stashed changes
     SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-<<<<<<< Updated upstream
-=======
     # 🔥 Firebase Config
     FIREBASE_SERVICE_ACCOUNT: str
     FIREBASE_PROJECT_ID: str
@@ -52,7 +42,6 @@ class Settings(BaseSettings):
         if not path.exists():
             raise ValueError(f"Firebase service account file not found: {value}")
         return value
->>>>>>> Stashed changes
 
 
 # Singleton instance
