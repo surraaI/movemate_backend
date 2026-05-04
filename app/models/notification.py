@@ -1,5 +1,14 @@
 import uuid
 from datetime import datetime
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from app.db.base import Base
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
 from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 
 from app.db.base import Base
