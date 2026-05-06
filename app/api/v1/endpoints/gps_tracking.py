@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_roles
@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.gps_tracking import (
     AdminFleetOut,
     BusLiveLocationOut,
+    ETAPredictionOut,
     GPSUpdateRequest,
     GPSUpdateResponse,
     RouteFleetOut,
@@ -17,6 +18,7 @@ from app.schemas.gps_tracking import (
     TripOut,
     TripStartRequest,
 )
+from app.services.eta_service import ETAService
 from app.services.gps_tracking_service import GPSTrackingService
 
 router = APIRouter()
@@ -78,3 +80,13 @@ def get_live_fleet_data(
     _current_user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
 ) -> AdminFleetOut:
     return GPSTrackingService(db).get_live_fleet()
+
+
+@router.get("/trips/{trip_id}/eta", response_model=ETAPredictionOut)
+def get_trip_eta(
+    trip_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    _current_user: Annotated[User, Depends(require_roles(UserRole.COMMUTER, UserRole.ADMIN, UserRole.DRIVER))],
+    destination_stop_id: Annotated[str | None, Query(alias="destinationStopId")] = None,
+) -> ETAPredictionOut:
+    return ETAService(db).predict_trip_eta(trip_id, destination_stop_id)
