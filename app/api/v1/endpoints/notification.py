@@ -22,9 +22,6 @@ def get_notifications(
 ):
     # Use the authenticated user's ID
     return db.query(Notification).filter(Notification.user_id == current_user.user_id).all()
-@router.get("/")
-def get_notifications(db: Session = Depends(get_db)):
-    return db.query(Notification).all()
 
 @router.put("/{id}/read")
 def mark_as_read(id: str, db: Session = Depends(get_db)):

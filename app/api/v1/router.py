@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, health, operations, users, notification
+
 from app.api.v1.endpoints import (
     auth,
     gps_tracking,
@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     routes,
     stops,
     users,
+    ticket
 )
 
 api_router = APIRouter()
@@ -25,3 +26,4 @@ api_router.include_router(stops.router, prefix="/stops", tags=["stops"])
 api_router.include_router(routes.router, prefix="/routes", tags=["routes"])
 api_router.include_router(route_stops.router, prefix="/routes", tags=["route-stops"])
 api_router.include_router(gps_tracking.router, prefix="/gps", tags=["gps-tracking"])
+api_router.include_router(ticket.router, prefix="/tickets", tags=["tickets"])
