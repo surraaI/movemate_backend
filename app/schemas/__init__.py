@@ -2,6 +2,7 @@ from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, Toke
 from app.schemas.gps_tracking import (
     AdminFleetOut,
     BusLiveLocationOut,
+    ETAPredictionOut,
     GPSUpdateRequest,
     GPSUpdateResponse,
     RouteFleetOut,
@@ -18,6 +19,7 @@ __all__ = [
     "AdminFleetOut",
     "BusLiveLocationOut",
     "ChangePasswordRequest",
+    "ETAPredictionOut",
     "GPSUpdateRequest",
     "GPSUpdateResponse",
     "RouteFleetOut",
