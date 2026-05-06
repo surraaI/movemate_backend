@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from pathlib import Path
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -25,6 +26,12 @@ class Settings(BaseSettings):
     # 🔥 Firebase Config
     FIREBASE_SERVICE_ACCOUNT: str
     FIREBASE_PROJECT_ID: str
+
+    # 🔥 Chapa Payment Config
+    CHAPA_SECRET_KEY: str
+    CHAPA_BASE_URL: str = "https://api.chapa.co/v1"
+    CHAPA_CALLBACK_URL: str = "http://localhost:8000/api/v1/tickets/callback"
+    CHAPA_RETURN_URL: str = "http://localhost:8000/success"
 
     # ✅ Normalize DB URL
     @field_validator("DATABASE_URL", mode="before")
