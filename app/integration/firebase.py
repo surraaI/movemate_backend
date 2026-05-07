@@ -15,8 +15,13 @@ def _get_access_token() -> str | None:
     """
     Generate OAuth2 access token using service account
     """
-    if not settings.FIREBASE_SERVICE_ACCOUNT or settings.FIREBASE_SERVICE_ACCOUNT == "dummy":
-        return None
+    if not settings.FIREBASE_SERVICE_ACCOUNT:
+        raise FirebaseError("FIREBASE_SERVICE_ACCOUNT is not set")
+
+    credentials = service_account.Credentials.from_service_account_file(
+        settings.FIREBASE_SERVICE_ACCOUNT,
+        scopes=["https://www.googleapis.com/auth/firebase.messaging"]
+    )
 
     try:
         credentials = service_account.Credentials.from_service_account_file(
