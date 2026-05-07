@@ -1,5 +1,4 @@
 from pydantic import BaseModel, ConfigDict
-from uuid import UUID
 from datetime import datetime
 
 
@@ -12,11 +11,8 @@ class NotificationCreate(BaseModel):
     type: str
 
 class NotificationOut(BaseModel):
-    id: UUID
+    id: str
     model_config = ConfigDict(from_attributes=True)
     title: str
     message: str
     created_at: datetime
-
-    class Config:
-        orm_mode = True

@@ -8,7 +8,7 @@ class Ticket(Base):
     __tablename__ = "tickets"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"))
+    user_id = Column(String, ForeignKey("users.user_id"))
     route_id = Column(String)
     fare = Column(Integer)
     qr_code = Column(String)

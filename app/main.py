@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-import app.models  # noqa: F401 — register ORM mappers for create_all
+import app.models  # noqa: F401
 from app.db.base import Base
 from app.db.session import engine
 from app.workers.scheduler import start_scheduler
@@ -15,9 +15,6 @@ async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
     yield
 
-@app.on_event("startup")
-def startup_event():
-    start_scheduler()
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -25,9 +22,14 @@ def create_app() -> FastAPI:
         version=settings.VERSION,
         lifespan=lifespan,
     )
+
     app.include_router(api_router, prefix="/api/v1")
+
+    @app.on_event("startup")
+    def startup_event():
+        start_scheduler()
+
     return app
 
 
 app = create_app()
-

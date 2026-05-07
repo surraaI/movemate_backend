@@ -9,7 +9,7 @@ class Payment(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     tx_ref = Column(String, unique=True, index=True)
-    user_id = Column(String, ForeignKey("users.id"))
+    user_id = Column(String, ForeignKey("users.user_id"))
     route_id = Column(String)
     amount = Column(Integer)
     status = Column(String, default="pending")  # pending, success, failed
