@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 from sqlalchemy import func, extract
 
@@ -8,10 +9,16 @@ from app.models.location import Location
 from app.models.ticket import Ticket
 from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
-from app.models.enums import UserStatus
+from app.models.enums import UserRole, UserStatus
+from app.models.profile import AdminProfile, DriverProfile
+from app.core.security import hash_password
 
 
 class AdminService:
+    @staticmethod
+    def _normalize_permissions(permissions: list[str]) -> list[str]:
+        values = {permission.strip() for permission in permissions if permission and permission.strip()}
+        return sorted(values)
 
     # 🔹 Dashboard stats
     @staticmethod
@@ -223,3 +230,80 @@ class AdminService:
             "status": "OK",
             "message": "System running normally"
         }
+
+    @staticmethod
+    def create_driver(
+        db,
+        *,
+        email: str,
+        password: str,
+        full_name: str,
+        phone_number: str,
+        license_number: str,
+        employee_id: str,
+        assigned_vehicle_id: str | None,
+    ) -> User:
+        existing = db.query(User).filter(User.email == email.lower()).first()
+        if existing:
+            raise ValueError("Email already registered")
+
+        user = User(
+            full_name=full_name.strip(),
+            email=email.lower(),
+            password_hash=hash_password(password),
+            phone_number=phone_number.strip(),
+            role=UserRole.DRIVER,
+            status=UserStatus.ACTIVE,
+        )
+        db.add(user)
+        db.flush()
+
+        db.add(
+            DriverProfile(
+                user_id=user.user_id,
+                license_number=license_number.strip(),
+                employee_id=employee_id.strip(),
+                assigned_vehicle_id=assigned_vehicle_id.strip() if assigned_vehicle_id else None,
+            )
+        )
+        db.commit()
+        db.refresh(user)
+        return user
+
+    @staticmethod
+    def create_admin(
+        db,
+        *,
+        email: str,
+        password: str,
+        full_name: str,
+        phone_number: str,
+        department: str,
+        permissions: list[str],
+    ) -> User:
+        existing = db.query(User).filter(User.email == email.lower()).first()
+        if existing:
+            raise ValueError("Email already registered")
+
+        normalized_permissions = AdminService._normalize_permissions(permissions)
+        user = User(
+            full_name=full_name.strip(),
+            email=email.lower(),
+            password_hash=hash_password(password),
+            phone_number=phone_number.strip(),
+            role=UserRole.ADMIN,
+            status=UserStatus.ACTIVE,
+        )
+        db.add(user)
+        db.flush()
+
+        db.add(
+            AdminProfile(
+                user_id=user.user_id,
+                department=department.strip(),
+                permissions=json.dumps(normalized_permissions),
+            )
+        )
+        db.commit()
+        db.refresh(user)
+        return user

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import Optional
 
 
@@ -40,3 +40,32 @@ class AdvancedMetrics(BaseModel):
     average_delay_seconds: float
     tickets_last_hour: int
     bus_utilization: float
+
+
+class DriverCreateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str = Field(alias="fullName", min_length=1, max_length=255)
+    phone_number: str = Field(alias="phoneNumber", min_length=5, max_length=32)
+    license_number: str = Field(alias="licenseNumber", min_length=1, max_length=64)
+    employee_id: str = Field(alias="employeeId", min_length=1, max_length=64)
+    assigned_vehicle_id: str | None = Field(default=None, alias="assignedVehicleId")
+
+
+class AdminCreateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str = Field(alias="fullName", min_length=1, max_length=255)
+    phone_number: str = Field(alias="phoneNumber", min_length=5, max_length=32)
+    department: str = Field(min_length=1, max_length=128)
+    permissions: list[str] = Field(default_factory=list)
+
+
+class UserCreatedResponse(BaseModel):
+    user_id: str = Field(serialization_alias="userId")
+    role: str
+    email: EmailStr
