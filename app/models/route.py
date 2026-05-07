@@ -11,6 +11,7 @@ from app.db.base import Base
 from app.models.enums import RouteStatus
 
 if TYPE_CHECKING:
+    from app.models.bus import Bus
     from app.models.route_stop import RouteStop
 
 
@@ -34,4 +35,8 @@ class Route(Base):
         back_populates="route",
         cascade="all, delete-orphan",
         order_by="RouteStop.sequence",
+    )
+    buses: Mapped[list[Bus]] = relationship(
+        "Bus",
+        back_populates="route",
     )

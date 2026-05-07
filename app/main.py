@@ -5,15 +5,22 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 from app.core.config import settings
 import app.models  # noqa: F401
+
 from app.db.base import Base
 from app.db.session import engine
 from app.workers.scheduler import start_scheduler
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+async def lifespan(app: FastAPI):
+    # Startup logic
+   
+    start_scheduler()
+
     yield
+
+    # Shutdown logic (optional)
+    print("Application shutting down")
 
 
 def create_app() -> FastAPI:
@@ -24,10 +31,6 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api/v1")
-
-    @app.on_event("startup")
-    def startup_event():
-        start_scheduler()
 
     return app
 
