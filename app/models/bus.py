@@ -21,7 +21,7 @@ class Bus(Base):
     )
 
     route_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("routes.route_id"), nullable=True
+        String(36), ForeignKey("routes.id"), nullable=True
     )
 
     status: Mapped[str] = mapped_column(String(32), default="ACTIVE")
