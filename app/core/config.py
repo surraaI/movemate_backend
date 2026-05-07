@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     CHAPA_BASE_URL: str = "https://api.chapa.co/v1"
     CHAPA_CALLBACK_URL: str = "http://localhost:8000/api/v1/tickets/callback"
     CHAPA_RETURN_URL: str = "http://localhost:8000/success"
+    ETA_MODEL_PATH: str = "ETA_datasets/eta_model.joblib"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
