@@ -210,3 +210,5 @@ __marimo__/
 # Local SSH keys and similar secrets (never push to GitHub)
 githubssh
 githubssh.pub
+ETA_datasets/*.joblib
+*.joblib
