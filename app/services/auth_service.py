@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -18,7 +17,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.enums import UserRole, UserStatus
-from app.models.profile import AdminProfile, CommuterProfile, DriverProfile
+from app.models.profile import CommuterProfile
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import RegisterRequest, TokenPair
@@ -44,42 +43,23 @@ def register(db: Session, data: RegisterRequest) -> TokenPair:
         )
 
     user = User(
-        full_name=data.full_name,
+        full_name=str(data.email).split("@", maxsplit=1)[0],
         email=str(data.email).lower(),
         password_hash=hash_password(data.password),
-        phone_number=data.phone_number,
-        role=data.role,
+        phone_number="N/A",
+        role=UserRole.COMMUTER,
         status=UserStatus.ACTIVE,
     )
     db.add(user)
     db.flush()
 
-    if data.role == UserRole.COMMUTER:
-        db.add(
-            CommuterProfile(
-                user_id=user.user_id,
-                preferred_route_id=data.commuter_preferred_route_id,
-                notes=None,
-            )
+    db.add(
+        CommuterProfile(
+            user_id=user.user_id,
+            preferred_route_id=None,
+            notes=None,
         )
-    elif data.role == UserRole.DRIVER:
-        db.add(
-            DriverProfile(
-                user_id=user.user_id,
-                license_number=data.driver_license_number or "",
-                employee_id=data.driver_employee_id or "",
-                assigned_vehicle_id=data.driver_assigned_vehicle_id,
-            )
-        )
-    elif data.role == UserRole.ADMIN:
-        perms = data.admin_permissions if data.admin_permissions is not None else []
-        db.add(
-            AdminProfile(
-                user_id=user.user_id,
-                department=data.admin_department or "",
-                permissions=json.dumps(perms),
-            )
-        )
+    )
 
     db.commit()
     db.refresh(user)
