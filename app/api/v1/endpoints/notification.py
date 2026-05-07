@@ -10,8 +10,8 @@ from app.models.user import User
 router = APIRouter()
 
 @router.post("/")
-def create_notification(data: NotificationCreate, db: Session = Depends(get_db)):
-    return NotificationService.create(db, data)
+def create_notification(payload: NotificationCreate, db: Session = Depends(get_db)):
+    return NotificationService.create(db, payload)
 
 
 
