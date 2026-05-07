@@ -1,6 +1,9 @@
-from pydantic import BaseModel
-from uuid import UUID
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class NotificationCreate(BaseModel):
@@ -11,12 +14,13 @@ class NotificationCreate(BaseModel):
 
 
 class NotificationOut(BaseModel):
-    id: UUID
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    type: str
     title: str
     message: str
     status: str
     created_at: datetime
-
-    model_config = {
-        "from_attributes": True
-    }
+    read_at: Optional[datetime] = None

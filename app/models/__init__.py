@@ -1,4 +1,5 @@
 from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory
+from app.models.notification import Notification
 from app.models.profile import AdminProfile, CommuterProfile, DriverProfile
 from app.models.refresh_token import RefreshToken
 from app.models.route import Route
@@ -13,6 +14,7 @@ __all__ = [
     "BusLocationHistory",
     "CommuterProfile",
     "DriverProfile",
+    "Notification",
     "RefreshToken",
     "Route",
     "RouteStop",
