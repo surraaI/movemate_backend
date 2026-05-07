@@ -39,7 +39,7 @@ def check_bus_arrivals():
         db.close()
         logger.info("ETA check complete")
     except Exception as e:
-        logger.error(f"Error during ETA check: {e}")
+        logger.error(f"Error during ETA check: {e}", exc_info=True)
 
 scheduler.add_job(check_bus_arrivals, "interval", seconds=30)
 
