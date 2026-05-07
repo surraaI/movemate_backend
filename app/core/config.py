@@ -15,13 +15,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Firebase config
-    # Optional at startup; required only when sending push notifications.
-    FIREBASE_SERVICE_ACCOUNT: str = ""
-    FIREBASE_PROJECT_ID: str = ""
+    FIREBASE_SERVICE_ACCOUNT: str
+    FIREBASE_PROJECT_ID: str
 
     # Chapa payment config
-    # Optional at startup; required only when initiating/verifying payments.
-    CHAPA_SECRET_KEY: str = ""
+    CHAPA_SECRET_KEY: str
     CHAPA_BASE_URL: str = "https://api.chapa.co/v1"
     CHAPA_CALLBACK_URL: str = "http://localhost:8000/api/v1/tickets/callback"
     CHAPA_RETURN_URL: str = "http://localhost:8000/success"
