@@ -29,7 +29,7 @@ def _issue_tokens(db: Session, user: User) -> TokenPair:
     row = RefreshToken(user_id=user.user_id, jti=jti, expires_at=expires_at)
     db.add(row)
     db.flush()
-    access = create_access_token(user.user_id)
+    access = create_access_token(user.user_id, role=user.role.value)
     refresh = create_refresh_token(user.user_id, jti)
     return TokenPair(access_token=access, refresh_token=refresh, token_type="bearer")
 
