@@ -10,12 +10,19 @@ import app.models  # noqa: F401
 from app.db.base import Base
 from app.db.session import engine
 from app.workers.scheduler import start_scheduler
+from app.db.session import SessionLocal
+from app.db.seed import seed_superadmin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup logic
-   
+    db = SessionLocal()
+    try:
+        seed_superadmin(db)
+    finally:
+        db.close()
+
     start_scheduler()
 
     yield
