@@ -16,19 +16,23 @@ if TYPE_CHECKING:
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.user_id"), nullable=False, index=True
-    )
-    type: Mapped[str] = mapped_column(String, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    message: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String, default="SENT")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
 
-    user: Mapped[User] = relationship("User")
+    user_id = Column(
+        String,
+        ForeignKey("users.user_id"),
+        nullable=False
+    )
+
+    type = Column(String, nullable=False)
+    title = Column(Text, nullable=False)
+    message = Column(Text, nullable=False)
+
+    status = Column(String, default="SENT")
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    read_at = Column(DateTime(timezone=True), nullable=True)
