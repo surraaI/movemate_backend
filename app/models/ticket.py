@@ -26,7 +26,9 @@ class Ticket(Base):
     fare: Mapped[int] = mapped_column(Integer, nullable=False)
     qr_code: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    DateTime(timezone=True),
+    server_default=func.now(),
+    nullable=False
+)
 
     user: Mapped[User] = relationship("User")
