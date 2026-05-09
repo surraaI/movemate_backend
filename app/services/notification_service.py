@@ -51,11 +51,7 @@ class NotificationService:
         else:
             print("No device token → skipping push")
 
-    def create(db: Session, data):
-        notification = Notification(**data.dict())
-        db.add(notification)
-        db.commit()
-        db.refresh(notification)
+    
         return notification
 
     @staticmethod

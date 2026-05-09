@@ -110,3 +110,16 @@ class AdminFleetOut(BaseModel):
 
     total_active_trips: int = Field(serialization_alias="totalActiveTrips")
     buses: list[BusLiveLocationOut]
+
+
+class ETAPredictionOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    trip_id: str = Field(serialization_alias="tripId")
+    route_id: str = Field(serialization_alias="routeId")
+    destination_stop_id: str = Field(serialization_alias="destinationStopId")
+    destination_stop_name: str = Field(serialization_alias="destinationStopName")
+    remaining_distance_km: float = Field(serialization_alias="remainingDistanceKm")
+    predicted_speed_kph: float = Field(serialization_alias="predictedSpeedKph")
+    eta_minutes: int = Field(serialization_alias="etaMinutes")
+    estimated_arrival: datetime = Field(serialization_alias="estimatedArrival")

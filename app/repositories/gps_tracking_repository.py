@@ -1,9 +1,10 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.enums import TripStatus
 from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory
 from app.models.route import Route
+from app.models.route_stop import RouteStop
 
 
 class GPSTrackingRepository:
@@ -80,5 +81,14 @@ class GPSTrackingRepository:
             .join(ActiveTrip, ActiveTrip.trip_id == BusCurrentLocation.trip_id)
             .where(ActiveTrip.status == TripStatus.ACTIVE)
             .order_by(BusCurrentLocation.updated_at.desc())
+        )
+        return list(self.db.scalars(query).all())
+
+    def list_route_stops(self, route_id: str) -> list[RouteStop]:
+        query = (
+            select(RouteStop)
+            .options(joinedload(RouteStop.stop))
+            .where(RouteStop.route_id == route_id)
+            .order_by(RouteStop.sequence.asc())
         )
         return list(self.db.scalars(query).all())

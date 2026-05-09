@@ -5,84 +5,105 @@ from firebase_admin import credentials, messaging
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+import requests
+
+from google.oauth2 import service_account
+from google.auth.transport.requests import Request
+
+
+
 
 class FirebaseError(Exception):
     """Custom exception for Firebase-related errors"""
     pass
 
-# Initialize Firebase App
-_firebase_app = None
 
-def _get_firebase_app():
-    global _firebase_app
-    if _firebase_app is not None:
-        return _firebase_app
-    
-    if not settings.FIREBASE_SERVICE_ACCOUNT or settings.FIREBASE_SERVICE_ACCOUNT == "dummy":
-        logger.warning("Firebase service account not configured. Push notifications will be disabled.")
-        return None
+def _get_access_token() -> str | None:
+    """
+    Generate OAuth2 access token using service account
+    """
+    if not settings.FIREBASE_SERVICE_ACCOUNT:
+        raise FirebaseError("FIREBASE_SERVICE_ACCOUNT is not set")
 
-    import os
-    if not os.path.exists(settings.FIREBASE_SERVICE_ACCOUNT):
-        logger.error(f"Firebase service account file not found at: {settings.FIREBASE_SERVICE_ACCOUNT}")
-        return None
+    credentials = service_account.Credentials.from_service_account_file(
+        settings.FIREBASE_SERVICE_ACCOUNT,
+        scopes=["https://www.googleapis.com/auth/firebase.messaging"]
+    )
 
     try:
-        cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT)
-        _firebase_app = firebase_admin.initialize_app(cred)
-        return _firebase_app
+        credentials = service_account.Credentials.from_service_account_file(
+            settings.FIREBASE_SERVICE_ACCOUNT,
+            scopes=["https://www.googleapis.com/auth/firebase.messaging"]
+        )
+        credentials.refresh(Request())
+        return credentials.token
     except Exception as e:
-        logger.error(f"Failed to initialize Firebase app: {e}")
+        print(f"Firebase token error (expected in development): {e}")
         return None
+
 
 def send_push(
     token: str,
     title: str,
     message: str,
-    data: Optional[Dict[str, Any]] = None,
-    tag: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Send push notification to a single device with platform-specific enhancements
-    """
-    app = _get_firebase_app()
-    if not app:
-        logger.info(f"[Firebase disabled] Would send: {title} - {message} to {token}")
-        return {"success": True, "message": "Firebase not configured"}
+    Send push notification to a single device
 
-    # FCM data payload must be Dict[str, str]
-    safe_data = {}
-    if data:
-        for k, v in data.items():
-            safe_data[str(k)] = str(v) if v is not None else ""
+    Args:
+        token: Device FCM token
+        title: Notification title
+        message: Notification body
+        data: Optional custom payload
+
+    Returns:
+        Firebase response dict or dummy success dict
+    """
+
+    if not settings.FIREBASE_PROJECT_ID or settings.FIREBASE_PROJECT_ID == "dummy":
+        print(f"[Firebase disabled in dev] Not sending push: {title} - {message}")
+        return {"success": True, "message": "Push notifications disabled in development"}
+
+    access_token = _get_access_token()
+    if not access_token:
+        print(f"[Firebase disabled in dev] Not sending push: {title} - {message}")
+        return {"success": True, "message": "Push notifications disabled in development"}
+
+    url = f"https://fcm.googleapis.com/v1/projects/{settings.FIREBASE_PROJECT_ID}/messages:send"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "message": {
+            "token": token,
+            "notification": {
+                "title": title,
+                "body": message
+            },
+            "data": data or {}
+        }
+    }
 
     try:
-        msg = messaging.Message(
-            notification=messaging.Notification(
-                title=title,
-                body=message,
-            ),
-            token=token,
-            data=safe_data,
-            android=messaging.AndroidConfig(
-                priority="high",
-                notification=messaging.AndroidNotification(
-                    sound="default",
-                    tag=tag,  # Optional tag for grouping/replacing notifications
-                ),
-            ),
-            apns=messaging.APNSConfig(
-                payload=messaging.APNSPayload(
-                    aps=messaging.Aps(sound="default", badge=1),
-                ),
-            ),
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=10
         )
-        response = messaging.send(msg, app=app)
-        logger.info(f"Successfully sent Firebase message: {response}")
-        return {"success": True, "response": response}
-    except Exception as e:
-        logger.error(f"Error sending Firebase message: {e}")
-        raise FirebaseError(f"FCM Error: {str(e)}")
+
+        if response.status_code != 200:
+            raise FirebaseError(f"FCM Error: {response.text}")
+
+        return response.json()
+
+    except requests.RequestException as e:
+        raise FirebaseError(f"Request failed: {str(e)}")
+
 
 def send_multicast(
     tokens: list[str],
