@@ -1,0 +1,40 @@
+=== DATABASE TABLES ===
+- active_trips
+- admin_profiles
+- alembic_version
+- bus_current_locations
+- bus_location_history
+- buses
+- commuter_profiles
+- driver_profiles
+- eta_predictions
+- locations
+- notifications
+- payments
+- refresh_tokens
+- route_stops
+- routes
+- stops
+- tickets
+- users
+
+=== MODELS ===- active_trips
+- admin_profiles
+- bus_current_locations
+- bus_location_history
+- buses
+- commuter_profiles
+- driver_profiles
+- eta_predictions
+- locations
+- notifications
+- payments
+- refresh_tokens
+- route_stops
+- routes
+- stops
+- tickets
+- users
+
+=== MISSING TABLES ===
+No missing tables found! All models have tables in the database!
