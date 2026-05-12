@@ -17,7 +17,7 @@ router = APIRouter()
 def create_stop(
     payload: StopCreate,
     db: Annotated[Session, Depends(get_db)],
-    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
+    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN))],
 ) -> StopOut:
     return StopOut.model_validate(StopService(db).create_stop(payload))
 

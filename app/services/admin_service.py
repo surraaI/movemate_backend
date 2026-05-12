@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from sqlalchemy import func, extract
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.user import User
 from app.models.bus import Bus
@@ -15,6 +16,19 @@ from app.core.security import hash_password
 
 
 class AdminService:
+    @staticmethod
+    def list_users_for_admin(db: Session) -> list[User]:
+        return (
+            db.query(User)
+            .options(
+                joinedload(User.commuter_profile),
+                joinedload(User.driver_profile),
+                joinedload(User.admin_profile),
+            )
+            .order_by(User.created_at.desc())
+            .all()
+        )
+
     @staticmethod
     def _normalize_permissions(permissions: list[str]) -> list[str]:
         values = {permission.strip() for permission in permissions if permission and permission.strip()}
