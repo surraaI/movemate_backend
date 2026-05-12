@@ -1,4 +1,9 @@
+# app/services/notification_service.py
+
+import uuid
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+
 from app.models.notification import Notification
 from app.integration.firebase import send_push, FirebaseError
 
@@ -7,15 +12,24 @@ class NotificationService:
 
     @staticmethod
     def create(db: Session, data, device_token: str = None):
-        # 1. Save notification in DB
-        notification = Notification(**data.dict())
-        notification.status = "SENT"
+        # Explicitly generate a string ID to avoid any UUID type issues
+        notification_id = str(uuid.uuid4())
+        
+        # Save notification
+        notification = Notification(
+            id=notification_id,
+            user_id=data.user_id,
+            title=data.title,
+            message=data.message,
+            type=data.type,
+            status="SENT"
+        )
 
         db.add(notification)
         db.commit()
         db.refresh(notification)
 
-        # 2. Send push notification (THIS is where token is used)
+        # Send push notification
         if device_token:
             try:
                 send_push(
@@ -24,21 +38,37 @@ class NotificationService:
                     message=notification.message,
                     data={
                         "notification_id": str(notification.id),
-                        "type": notification.type
-                    }
+                        "type": notification.type,
+                    },
                 )
+
             except FirebaseError as e:
-                # 3. Update status if push fails
                 notification.status = "FAILED"
                 db.commit()
+
                 print("Push failed:", e)
+
         else:
             print("No device token → skipping push")
+
+    
         return notification
 
     @staticmethod
-    def mark_as_read(db: Session, notification_id):
-        notification = db.query(Notification).get(notification_id)
+    def mark_as_read(db: Session, notification_id: str):
+
+        notification = (
+            db.query(Notification)
+            .filter(Notification.id == notification_id)
+            .first()
+        )
+
+        if notification:
+            notification.status = "READ"
+            notification.read_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(notification)
+
         if notification:
             notification.status = "READ"
             db.commit()
