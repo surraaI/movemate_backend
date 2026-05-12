@@ -15,7 +15,18 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 2) Environment configuration
+## Firebase Configuration
+
+To enable push notifications:
+
+1. Obtain a Firebase service account JSON file from the Firebase Console.
+2. Place the file in a secure location on your machine.
+3. Update `FIREBASE_SERVICE_ACCOUNT` in your `.env` file with the absolute path to this JSON file.
+4. Set `FIREBASE_PROJECT_ID` to your Firebase project ID.
+
+If these are not configured, push notifications will be gracefully disabled in development.
+
+### App layout
 
 Create your local environment file:
 

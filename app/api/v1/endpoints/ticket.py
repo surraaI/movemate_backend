@@ -18,13 +18,12 @@ def start_payment(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    return create_payment_session(db, current_user.id, data)
+    return create_payment_session(db, current_user.user_id, data)
 
 
-@router.get("/callback")
+@router.post("/callback")
 def chapa_callback(
     trx_ref: str,
-    status: str,
     db: Session = Depends(get_db)
 ):
     payment = db.query(Payment).filter(Payment.tx_ref == trx_ref).first()
@@ -32,23 +31,31 @@ def chapa_callback(
     if not payment:
         return {"error": "Payment not found"}
 
+    # 🔴 Prevent duplicate processing
+    if payment.status == "success":
+        return {"message": "Already processed"}
+
+    # ✅ ALWAYS verify with provider
     verification = verify_payment(trx_ref)
 
     if verification["status"] != "success":
         payment.status = "failed"
         db.commit()
-        return {"error": "Verification failed"}
+        return {"message": "Payment failed"}
 
-    if payment.status == "success":
-        return {"message": "Already processed"}
-
+    # ✅ mark as success BEFORE ticket creation (prevents duplicates)
     payment.status = "success"
     db.commit()
 
-    ticket = purchase_ticket(db, payment.user_id, {
-        "route_id": payment.route_id,
-        "fare": payment.amount
-    })
+    # 🎟️ create ticket
+    ticket = purchase_ticket(
+        db,
+        payment.user_id,
+        {
+            "route_id": payment.route_id,
+            "fare": payment.amount
+        }
+    )
 
     return {
         "message": "Payment verified",

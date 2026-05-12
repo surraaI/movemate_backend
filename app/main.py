@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI):
     start_scheduler()
 
     yield
+    # Shutdown (optional cleanup here)
 
     # Shutdown logic (optional)
     print("Application shutting down")

@@ -1,0 +1,21 @@
+
+Checking table: notifications
+Column: id, Type: VARCHAR(36)
+Column: user_id, Type: VARCHAR(36)
+Column: type, Type: VARCHAR
+Column: title, Type: TEXT
+Column: message, Type: TEXT
+Column: status, Type: VARCHAR
+Column: created_at, Type: TIMESTAMP
+Column: read_at, Type: TIMESTAMP
+
+Checking table: users
+Column: user_id, Type: VARCHAR(36)
+Column: full_name, Type: VARCHAR(255)
+Column: email, Type: VARCHAR(320)
+Column: password_hash, Type: VARCHAR(255)
+Column: phone_number, Type: VARCHAR(32)
+Column: role, Type: VARCHAR(32)
+Column: status, Type: VARCHAR(32)
+Column: created_at, Type: TIMESTAMP
+Column: last_login, Type: TIMESTAMP

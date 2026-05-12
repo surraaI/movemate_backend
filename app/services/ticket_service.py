@@ -43,7 +43,8 @@ def purchase_ticket(db: Session, user_id, data):
     )
 
     db.add(ticket)
-    db.commit()
+    db.flush()
     db.refresh(ticket)
+    db.commit()
 
     return ticket
