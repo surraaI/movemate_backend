@@ -12,13 +12,14 @@ from app.db.session import engine
 from app.workers.scheduler import start_scheduler
 from app.db.session import SessionLocal
 from app.db.seed import seed_superadmin
-from app.services.eta_model_loader import ensure_eta_model_downloaded
+# Hugging Face ETA model download — re-enable when hosting the .joblib remotely again
+# from app.services.eta_model_loader import ensure_eta_model_downloaded
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup logic
-    ensure_eta_model_downloaded()
+    # ensure_eta_model_downloaded()
 
     db = SessionLocal()
     try:
