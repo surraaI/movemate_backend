@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum as SAEnum, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base_class import Base
 from app.models.enums import UserRole, UserStatus
 
 if TYPE_CHECKING:

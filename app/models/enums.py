@@ -5,6 +5,7 @@ class UserRole(str, enum.Enum):
     COMMUTER = "COMMUTER"
     DRIVER = "DRIVER"
     ADMIN = "ADMIN"
+    SUPERADMIN = "SUPERADMIN"
 
 
 class UserStatus(str, enum.Enum):

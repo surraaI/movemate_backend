@@ -5,6 +5,8 @@ from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+from datetime import datetime
+from typing import Optional
 
 
 class NotificationCreate(BaseModel):
@@ -16,12 +18,12 @@ class NotificationCreate(BaseModel):
 
 class NotificationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
+    
     id: str
     user_id: str
-    type: str
     title: str
     message: str
     status: str
+    type: str
     created_at: datetime
     read_at: Optional[datetime] = None
