@@ -6,8 +6,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
-
+from app.db.base_class import Base
 
 class RouteStop(Base):
     __tablename__ = "route_stops"

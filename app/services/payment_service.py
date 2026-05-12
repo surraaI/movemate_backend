@@ -17,9 +17,16 @@ def initiate_payment(amount: int, email: str):
         "amount": str(amount),
         "currency": "ETB",
         "email": email,
+        "first_name": "MoveMate",
+        "last_name": "User",
+        "phone_number": "0912345678",
         "tx_ref": tx_ref,
         "callback_url": settings.CHAPA_CALLBACK_URL,
-        "return_url": settings.CHAPA_RETURN_URL
+        "return_url": settings.CHAPA_RETURN_URL,
+        "customization": {
+            "title": "MoveMate",
+            "description": "Bus ticket payment"
+        }
     }
 
     headers = {
@@ -33,11 +40,27 @@ def initiate_payment(amount: int, email: str):
         headers=headers
     )
 
+    # 🔥 DEBUG OUTPUT
+    print("STATUS CODE:", response.status_code)
+    print("RESPONSE:", response.text)
+
     data = response.json()
+
+    # 🔥 SAFETY CHECKS
+    if response.status_code not in [200, 201]:
+        raise Exception(f"Chapa request failed: {data}")
+
+    if not data.get("data"):
+        raise Exception(f"Invalid Chapa response: {data}")
+
+    checkout_url = data["data"].get("checkout_url")
+
+    if not checkout_url:
+        raise Exception(f"checkout_url missing: {data}")
 
     return {
         "tx_ref": tx_ref,
-        "checkout_url": data["data"]["checkout_url"]
+        "checkout_url": checkout_url
     }
 
 
@@ -52,5 +75,7 @@ def verify_payment(tx_ref: str):
     }
 
     response = requests.get(url, headers=headers)
+
+    print("VERIFY RESPONSE:", response.text)
 
     return response.json()
