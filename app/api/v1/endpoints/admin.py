@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import require_roles, get_current_user
+from app.core.deps import require_roles
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.services.admin_service import AdminService
@@ -24,7 +24,6 @@ router = APIRouter(tags=["Admin Dashboard"])
 def dashboard(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.get_dashboard_stats(db)
 
@@ -36,7 +35,6 @@ def manage_user(
     action: str,
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     user = AdminService.change_user_status(db, user_id, action)
 
@@ -52,7 +50,6 @@ def assign_bus(
     data: AssignBusToRouteRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     result, error = AdminService.assign_bus_to_route(db, data.bus_id, data.route_id)
 
@@ -67,7 +64,6 @@ def assign_bus(
 def route_assignments(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.get_route_assignments(db)
 
@@ -77,7 +73,6 @@ def route_assignments(
 def live_buses(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.get_live_buses(db)
 
@@ -87,7 +82,6 @@ def live_buses(
 def demand(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.demand_analytics(db)
 
@@ -97,7 +91,6 @@ def demand(
 def advanced(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.advanced_metrics(db)
 
@@ -108,7 +101,6 @@ def send_notification(
     data: NotificationCreate,
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.create_notification(db, data.message, data.route_id)
 
@@ -117,7 +109,6 @@ def send_notification(
 def get_notifications(
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.get_notifications(db)
 
@@ -126,7 +117,6 @@ def get_notifications(
 @router.get("/health", response_model=SystemHealth)
 def health(
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ):
     return AdminService.system_health()
 
@@ -136,8 +126,7 @@ def health(
 def create_admin_user(
     body: AdminCreateRequest,
     db: Session = Depends(get_db),
-        _user: User = Depends(require_roles(UserRole.SUPERADMIN)),
-
+    _user: User = Depends(require_roles(UserRole.SUPERADMIN)),
 ) -> UserCreatedResponse:
     try:
         user = AdminService.create_admin(
@@ -160,7 +149,6 @@ def create_driver_user(
     body: DriverCreateRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
 ) -> UserCreatedResponse:
     try:
         user = AdminService.create_driver(
