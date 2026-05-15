@@ -25,7 +25,15 @@ class ETAService:
         self.repo = GPSTrackingRepository(db)
         self._ensure_historical_loaded()
 
-    def predict_trip_eta(self, trip_id: str, destination_stop_id: str | None = None) -> ETAPredictionOut:
+    def predict_trip_eta(
+        self,
+        trip_id: str,
+        destination_stop_id: str | None = None,
+        *,
+        commuter_user_id: str | None = None,
+        commuter_latitude: float | None = None,
+        commuter_longitude: float | None = None,
+    ) -> ETAPredictionOut:
         trip = self.repo.get_trip_by_id(trip_id)
         if trip is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
@@ -62,6 +70,30 @@ class ETAService:
         eta_minutes = max(1, math.ceil((remaining_distance_km / predicted_speed_kph) * 60))
         estimated_arrival = datetime.now(UTC) + timedelta(minutes=eta_minutes)
 
+        clat: float | None = commuter_latitude
+        clon: float | None = commuter_longitude
+        if (clat is None or clon is None) and commuter_user_id is not None:
+            stored = self.repo.get_commuter_location_for_user_trip(commuter_user_id, trip_id)
+            if stored is not None:
+                clat = stored.latitude
+                clon = stored.longitude
+
+        commuter_lat_out: float | None = None
+        commuter_lon_out: float | None = None
+        distance_to_bus_km: float | None = None
+        eta_to_bus_minutes: int | None = None
+        if clat is not None and clon is not None:
+            commuter_lat_out = clat
+            commuter_lon_out = clon
+            distance_to_bus_km = round(
+                self._haversine_km(current.latitude, current.longitude, clat, clon),
+                3,
+            )
+            if distance_to_bus_km <= 0.05:
+                eta_to_bus_minutes = 0
+            else:
+                eta_to_bus_minutes = max(1, math.ceil((distance_to_bus_km / predicted_speed_kph) * 60))
+
         return ETAPredictionOut(
             trip_id=trip.trip_id,
             route_id=trip.route_id,
@@ -71,6 +103,10 @@ class ETAService:
             predicted_speed_kph=round(predicted_speed_kph, 2),
             eta_minutes=eta_minutes,
             estimated_arrival=estimated_arrival,
+            commuter_latitude=commuter_lat_out,
+            commuter_longitude=commuter_lon_out,
+            distance_to_bus_km=distance_to_bus_km,
+            eta_to_bus_minutes=eta_to_bus_minutes,
         )
 
     def _predict_speed_kph(self, gps_timestamp: datetime, live_speed_kph: float | None) -> float:

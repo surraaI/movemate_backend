@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.enums import TripStatus
-from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory
+from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory, CommuterTripLocation
 from app.models.route import Route
 from app.models.route_stop import RouteStop
 
@@ -92,3 +92,29 @@ class GPSTrackingRepository:
             .order_by(RouteStop.sequence.asc())
         )
         return list(self.db.scalars(query).all())
+
+    def get_commuter_location_for_user_trip(self, user_id: str, trip_id: str) -> CommuterTripLocation | None:
+        query = select(CommuterTripLocation).where(
+            CommuterTripLocation.user_id == user_id,
+            CommuterTripLocation.trip_id == trip_id,
+        )
+        return self.db.scalar(query)
+
+    def upsert_commuter_location(
+        self,
+        existing: CommuterTripLocation | None,
+        payload: CommuterTripLocation,
+    ) -> CommuterTripLocation:
+        if existing is None:
+            self.db.add(payload)
+            self.db.flush()
+            self.db.refresh(payload)
+            return payload
+
+        existing.latitude = payload.latitude
+        existing.longitude = payload.longitude
+        existing.gps_timestamp = payload.gps_timestamp
+        self.db.add(existing)
+        self.db.flush()
+        self.db.refresh(existing)
+        return existing
