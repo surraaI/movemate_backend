@@ -21,6 +21,8 @@ async def lifespan(app: FastAPI):
     # Startup logic
     # ensure_eta_model_downloaded()
 
+    Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
     try:
         seed_superadmin(db)
