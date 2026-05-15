@@ -3,9 +3,35 @@ from sqlalchemy.orm import Session
 
 from app.models.enums import RouteStatus
 from app.models.route import Route
+from app.schemas.route import RouteDetailOut
+from app.schemas.route_stop import RouteStopOut
 from app.repositories.route_repository import RouteRepository
 from app.repositories.route_stop_repository import RouteStopRepository
 from app.schemas.route import RouteCreate, RouteStatusUpdate, RouteUpdate
+
+
+def route_to_detail_out(route: Route) -> RouteDetailOut:
+    stops = [
+        RouteStopOut(
+            stop_id=item.stop.id,
+            stop_name=item.stop.name,
+            latitude=item.stop.latitude,
+            longitude=item.stop.longitude,
+            sequence=item.sequence,
+            created_at=item.created_at,
+        )
+        for item in route.route_stops
+    ]
+    return RouteDetailOut(
+        id=route.id,
+        route_code=route.route_code,
+        route_name=route.route_name,
+        status=route.status,
+        is_deleted=route.is_deleted,
+        created_at=route.created_at,
+        updated_at=route.updated_at,
+        stops=stops,
+    )
 
 
 class RouteService:
