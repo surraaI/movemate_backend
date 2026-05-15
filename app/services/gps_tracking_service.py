@@ -8,12 +8,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.enums import TripStatus, UserRole
-from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory
+from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory, CommuterTripLocation
 from app.models.user import User
 from app.repositories.gps_tracking_repository import GPSTrackingRepository
 from app.schemas.gps_tracking import (
     AdminFleetOut,
     BusLiveLocationOut,
+    CommuterLocationUpdateRequest,
     GPSUpdateRequest,
     GPSUpdateResponse,
     RouteFleetOut,
@@ -137,6 +138,37 @@ class GPSTrackingService:
             extra={"trip_id": trip_id, "driver_id": driver.user_id, "vehicle_id": trip.vehicle_id},
         )
         return GPSUpdateResponse(trip_id=trip_id, accepted=True, stored_at=updated_current.received_at)
+
+    def submit_commuter_location(self, user: User, trip_id: str, payload: CommuterLocationUpdateRequest) -> GPSUpdateResponse:
+        trip = self.repo.get_trip_by_id(trip_id)
+        if trip is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+        if trip.status != TripStatus.ACTIVE:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trip is not active")
+        if payload.latitude == 0 and payload.longitude == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Suspicious coordinates rejected")
+
+        now = datetime.now(UTC)
+        if payload.timestamp < now - timedelta(seconds=MAX_STALE_GPS_AGE_SECONDS):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Stale GPS update rejected")
+        if payload.timestamp > now + timedelta(seconds=MAX_FUTURE_GPS_SKEW_SECONDS):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Future GPS timestamp rejected")
+
+        existing = self.repo.get_commuter_location_for_user_trip(user.user_id, trip_id)
+        row = CommuterTripLocation(
+            user_id=user.user_id,
+            trip_id=trip.trip_id,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            gps_timestamp=payload.timestamp,
+        )
+        saved = self.repo.upsert_commuter_location(existing, row)
+        self.db.commit()
+        logger.debug(
+            "Commuter GPS stored",
+            extra={"trip_id": trip_id, "user_id": user.user_id},
+        )
+        return GPSUpdateResponse(trip_id=trip_id, accepted=True, stored_at=saved.received_at)
 
     def get_bus_current_location(self, trip_id: str) -> BusLiveLocationOut:
         trip = self.repo.get_trip_by_id(trip_id)

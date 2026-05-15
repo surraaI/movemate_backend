@@ -10,7 +10,7 @@ from app.models.location import Location
 from app.models.ticket import Ticket
 from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
-from app.models.enums import UserRole, UserStatus
+from app.models.enums import UserRole, UserStatus, RouteStatus
 from app.models.profile import AdminProfile, DriverProfile
 from app.core.security import hash_password
 
@@ -40,7 +40,8 @@ class AdminService:
         return {
             "total_users": db.query(User).count(),
             "total_buses": db.query(Bus).count(),
-            "active_routes": db.query(Route).filter(Route.status == "ACTIVE").count(),
+            # compare against the RouteStatus enum value
+            "active_routes": db.query(Route).filter(Route.status == RouteStatus.ACTIVE).count(),
         }
 
     # 🔹 Change user status
@@ -71,7 +72,8 @@ class AdminService:
         if not bus:
             return None, "Bus not found"
 
-        route = db.query(Route).filter(Route.route_id == route_id).first()
+        # Route model uses `id` as the primary key
+        route = db.query(Route).filter(Route.id == route_id).first()
         if not route:
             return None, "Route not found"
 
@@ -92,12 +94,13 @@ class AdminService:
         result = []
 
         for route in routes:
-            buses = db.query(Bus).filter(Bus.route_id == route.route_id).all()
+            # buses reference route.id in the Bus.route_id foreign key
+            buses = db.query(Bus).filter(Bus.route_id == route.id).all()
 
             result.append({
-                "route_id": route.route_id,
-                "origin": route.origin,
-                "destination": route.destination,
+                "route_id": route.id,
+                "route_code": route.route_code,
+                "route_name": route.route_name,
                 "buses": [{"bus_id": b.bus_id} for b in buses]
             })
 
@@ -143,35 +146,38 @@ class AdminService:
     # 🔹 Demand analytics
     @staticmethod
     def demand_analytics(db):
-        routes = (
-            db.query(Ticket.route_id, func.count(Ticket.id))
+        # Top routes by ticket count
+        raw_routes = (
+            db.query(Ticket.route_id, func.count(Ticket.id).label("cnt"))
             .group_by(Ticket.route_id)
             .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
-        hours = (
+        top_routes = [
+            {"route_id": r[0], "count": int(r[1])} for r in raw_routes
+        ]
+
+        # Peak hours (hour of day)
+        raw_hours = (
             db.query(
-                extract("hour", Ticket.created_at),
-                func.count(Ticket.id)
+                extract("hour", Ticket.created_at).label("hour"),
+                func.count(Ticket.id).label("cnt")
             )
             .group_by("hour")
+            .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
-        stops = (
-            db.query(
-                Ticket.origin_stop_id,
-                func.count(Ticket.id)
-            )
-            .group_by(Ticket.origin_stop_id)
-            .all()
-        )
+        peak_hours = [{"hour": int(h[0]), "count": int(h[1])} for h in raw_hours]
+
+        # Ticket model currently does not store origin_stop_id — return empty for now
+        popular_stops = []
 
         return {
-            "top_routes": routes[:5],
-            "peak_hours": hours[:5],
-            "popular_stops": stops[:5]
+            "top_routes": top_routes[:5],
+            "peak_hours": peak_hours[:5],
+            "popular_stops": popular_stops
         }
 
     # 🔹 Advanced metrics

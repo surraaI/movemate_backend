@@ -99,3 +99,27 @@ class BusLocationHistory(Base):
     )
 
     trip: Mapped[ActiveTrip] = relationship("ActiveTrip", back_populates="location_history")
+
+
+class CommuterTripLocation(Base):
+    """Latest GPS fix from a commuter tracking a specific active trip (used with bus position for ETA)."""
+
+    __tablename__ = "commuter_trip_locations"
+    __table_args__ = (UniqueConstraint("user_id", "trip_id", name="uq_commuter_trip_locations_user_trip"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    trip_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("active_trips.trip_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    gps_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

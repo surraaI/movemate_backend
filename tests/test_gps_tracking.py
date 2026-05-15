@@ -16,6 +16,8 @@ from app.db.session import get_db
 from app.main import app
 from app.models.profile import DriverProfile
 from app.models.route import Route
+from app.models.route_stop import RouteStop
+from app.models.stop import Stop
 from app.models.user import User
 from app.models.enums import UserRole, UserStatus
 
@@ -92,6 +94,16 @@ class GPSTrackingIntegrationTests(unittest.TestCase):
                 employee_id="DRV-0001",
                 assigned_vehicle_id="BUS-001",
             )
+        )
+        stop_a = Stop(name="Stop A Test", latitude=9.0, longitude=38.7)
+        stop_b = Stop(name="Stop B Test", latitude=9.05, longitude=38.85)
+        db.add_all([stop_a, stop_b])
+        db.flush()
+        db.add_all(
+            [
+                RouteStop(route_id=route.id, stop_id=stop_a.id, sequence=1),
+                RouteStop(route_id=route.id, stop_id=stop_b.id, sequence=2),
+            ]
         )
         db.commit()
         self.route_id = route.id
@@ -188,6 +200,78 @@ class GPSTrackingIntegrationTests(unittest.TestCase):
             },
         )
         self.assertEqual(unrealistic.status_code, 400)
+
+    def test_commuter_location_and_eta_includes_distance_to_bus(self) -> None:
+        start = self.client.post(
+            "/api/v1/gps/trips/start",
+            headers=self.driver_headers,
+            json={"routeId": self.route_id},
+        )
+        self.assertEqual(start.status_code, 201)
+        trip_id = start.json()["tripId"]
+        ts = datetime.now(UTC)
+
+        self.client.post(
+            f"/api/v1/gps/trips/{trip_id}/locations",
+            headers=self.driver_headers,
+            json={
+                "latitude": 9.02,
+                "longitude": 38.78,
+                "timestamp": ts.isoformat(),
+                "speedKph": 30.0,
+            },
+        )
+
+        commuter_gps = self.client.post(
+            f"/api/v1/gps/trips/{trip_id}/commuter-location",
+            headers=self.commuter_headers,
+            json={
+                "latitude": 9.015,
+                "longitude": 38.775,
+                "timestamp": ts.isoformat(),
+            },
+        )
+        self.assertEqual(commuter_gps.status_code, 200)
+        self.assertTrue(commuter_gps.json()["accepted"])
+
+        eta = self.client.get(
+            f"/api/v1/gps/trips/{trip_id}/eta",
+            headers=self.commuter_headers,
+        )
+        self.assertEqual(eta.status_code, 200)
+        body = eta.json()
+        self.assertIn("distanceToBusKm", body)
+        self.assertIsNotNone(body["distanceToBusKm"])
+        self.assertGreater(body["distanceToBusKm"], 0)
+        self.assertIn("etaToBusMinutes", body)
+        self.assertIsNotNone(body["etaToBusMinutes"])
+        self.assertEqual(body["commuterLatitude"], 9.015)
+        self.assertEqual(body["commuterLongitude"], 38.775)
+
+    def test_eta_rejects_partial_commuter_query_coords(self) -> None:
+        start = self.client.post(
+            "/api/v1/gps/trips/start",
+            headers=self.driver_headers,
+            json={"routeId": self.route_id},
+        )
+        trip_id = start.json()["tripId"]
+        ts = datetime.now(UTC)
+        self.client.post(
+            f"/api/v1/gps/trips/{trip_id}/locations",
+            headers=self.driver_headers,
+            json={
+                "latitude": 9.02,
+                "longitude": 38.78,
+                "timestamp": ts.isoformat(),
+                "speedKph": 30.0,
+            },
+        )
+
+        bad = self.client.get(
+            f"/api/v1/gps/trips/{trip_id}/eta?commuterLatitude=9.01",
+            headers=self.commuter_headers,
+        )
+        self.assertEqual(bad.status_code, 400)
 
     def test_admin_live_fleet_requires_admin_role(self) -> None:
         commuter_attempt = self.client.get("/api/v1/gps/fleet/live", headers=self.commuter_headers)
