@@ -1,6 +1,7 @@
 from app.models.bus import Bus
 from app.models.eta_prediction import ETAPrediction
-from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory
+from app.models.event import Event
+from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory, CommuterTripLocation
 from app.models.location import Location
 from app.models.notification import Notification
 from app.models.payment import Payment
@@ -18,9 +19,11 @@ __all__ = [
     "Bus",
     "BusCurrentLocation",
     "BusLocationHistory",
+    "CommuterTripLocation",
     "CommuterProfile",
     "DriverProfile",
     "ETAPrediction",
+    "Event",
     "Location",
     "Notification",
     "Payment",

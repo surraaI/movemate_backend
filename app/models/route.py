@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, String, func
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -21,6 +22,8 @@ class Route(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     route_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     route_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=2), nullable=False, default=Decimal("0.00"))
+    distance_km: Mapped[float] = mapped_column(nullable=True)
     status: Mapped[RouteStatus] = mapped_column(
         SAEnum(RouteStatus, native_enum=False, length=32), nullable=False, default=RouteStatus.ACTIVE
     )

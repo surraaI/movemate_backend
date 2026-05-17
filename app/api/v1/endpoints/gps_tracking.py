@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_roles
@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.gps_tracking import (
     AdminFleetOut,
     BusLiveLocationOut,
+    CommuterLocationUpdateRequest,
     ETAPredictionOut,
     GPSUpdateRequest,
     GPSUpdateResponse,
@@ -53,6 +54,16 @@ def submit_gps_update(
     return GPSTrackingService(db).submit_gps_update(current_user, trip_id, payload)
 
 
+@router.post("/trips/{trip_id}/commuter-location", response_model=GPSUpdateResponse)
+def submit_commuter_location(
+    trip_id: str,
+    payload: CommuterLocationUpdateRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(require_roles(UserRole.COMMUTER))],
+) -> GPSUpdateResponse:
+    return GPSTrackingService(db).submit_commuter_location(current_user, trip_id, payload)
+
+
 @router.get(
     "/trips/{trip_id}/locations/current",
     response_model=BusLiveLocationOut,
@@ -86,7 +97,20 @@ def get_live_fleet_data(
 def get_trip_eta(
     trip_id: str,
     db: Annotated[Session, Depends(get_db)],
-    _current_user: Annotated[User, Depends(require_roles(UserRole.COMMUTER, UserRole.ADMIN, UserRole.DRIVER))],
+    current_user: Annotated[User, Depends(require_roles(UserRole.COMMUTER, UserRole.ADMIN, UserRole.DRIVER))],
     destination_stop_id: Annotated[str | None, Query(alias="destinationStopId")] = None,
+    commuter_latitude: Annotated[float | None, Query(alias="commuterLatitude")] = None,
+    commuter_longitude: Annotated[float | None, Query(alias="commuterLongitude")] = None,
 ) -> ETAPredictionOut:
-    return ETAService(db).predict_trip_eta(trip_id, destination_stop_id)
+    if (commuter_latitude is None) ^ (commuter_longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="commuterLatitude and commuterLongitude must both be provided or both omitted",
+        )
+    return ETAService(db).predict_trip_eta(
+        trip_id,
+        destination_stop_id,
+        commuter_user_id=current_user.user_id,
+        commuter_latitude=commuter_latitude,
+        commuter_longitude=commuter_longitude,
+    )

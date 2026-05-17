@@ -10,7 +10,7 @@ from app.models.location import Location
 from app.models.ticket import Ticket
 from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
-from app.models.enums import UserRole, UserStatus
+from app.models.enums import UserRole, UserStatus, RouteStatus
 from app.models.profile import AdminProfile, DriverProfile
 from app.core.security import hash_password
 
@@ -40,7 +40,8 @@ class AdminService:
         return {
             "total_users": db.query(User).count(),
             "total_buses": db.query(Bus).count(),
-            "active_routes": db.query(Route).filter(Route.status == "ACTIVE").count(),
+            # compare against the RouteStatus enum value
+            "active_routes": db.query(Route).filter(Route.status == RouteStatus.ACTIVE).count(),
         }
 
     # 🔹 Change user status
@@ -63,45 +64,57 @@ class AdminService:
         db.commit()
         db.refresh(user)
         return user
-
-    # 🔹 Assign bus → route
+    
+     # -------------------------
+    # assign bus to route
+    # -------------------------
     @staticmethod
-    def assign_bus_to_route(db, bus_id: str, route_id: str):
+    def assign_bus_to_route(db, bus_id: str, route_code: str):
         bus = db.query(Bus).filter(Bus.bus_id == bus_id).first()
         if not bus:
             return None, "Bus not found"
 
-        route = db.query(Route).filter(Route.route_id == route_id).first()
+        # Route model uses `id` as the primary key
+        route = db.query(Route).filter(Route.id == route_id).first()
         if not route:
             return None, "Route not found"
 
         if route.status != "ACTIVE":
             return None, "Cannot assign to inactive route"
 
-        bus.route_id = route_id
+        bus.route_id = route.id   # IMPORTANT FIX
 
         db.commit()
         db.refresh(bus)
 
         return bus, None
 
-    # 🔹 Get route assignments
+    # -------------------------
+    # route assignments
+    # -------------------------
     @staticmethod
     def get_route_assignments(db):
-        routes = db.query(Route).all()
+        routes = db.query(Route).filter(Route.is_deleted == False).all()
+
         result = []
 
         for route in routes:
-            buses = db.query(Bus).filter(Bus.route_id == route.route_id).all()
+            # buses reference route.id in the Bus.route_id foreign key
+            buses = db.query(Bus).filter(Bus.route_id == route.id).all()
 
             result.append({
-                "route_id": route.route_id,
-                "origin": route.origin,
-                "destination": route.destination,
+                "route_id": route.id,
+                "route_code": route.route_code,
+                "route_name": route.route_name,
+                "status": route.status,
                 "buses": [{"bus_id": b.bus_id} for b in buses]
             })
 
         return result
+    
+    
+    
+
 
     # 🔹 Real-time buses
     @staticmethod
@@ -143,37 +156,39 @@ class AdminService:
     # 🔹 Demand analytics
     @staticmethod
     def demand_analytics(db):
-        routes = (
-            db.query(Ticket.route_id, func.count(Ticket.id))
+        # Top routes by ticket count
+        raw_routes = (
+            db.query(Ticket.route_id, func.count(Ticket.id).label("cnt"))
             .group_by(Ticket.route_id)
             .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
-        hours = (
+        top_routes = [
+            {"route_id": r[0], "count": int(r[1])} for r in raw_routes
+        ]
+
+        # Peak hours (hour of day)
+        raw_hours = (
             db.query(
-                extract("hour", Ticket.created_at),
-                func.count(Ticket.id)
+                extract("hour", Ticket.created_at).label("hour"),
+                func.count(Ticket.id).label("cnt")
             )
             .group_by("hour")
+            .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
-        stops = (
-            db.query(
-                Ticket.origin_stop_id,
-                func.count(Ticket.id)
-            )
-            .group_by(Ticket.origin_stop_id)
-            .all()
-        )
+        peak_hours = [{"hour": int(h[0]), "count": int(h[1])} for h in raw_hours]
+
+        # Ticket model currently does not store origin_stop_id — return empty for now
+        popular_stops = []
 
         return {
-            "top_routes": routes[:5],
-            "peak_hours": hours[:5],
-            "popular_stops": stops[:5]
+            "top_routes": top_routes[:5],
+            "peak_hours": peak_hours[:5],
+            "popular_stops": popular_stops
         }
-
     # 🔹 Advanced metrics
     @staticmethod
     def advanced_metrics(db):
@@ -218,24 +233,7 @@ class AdminService:
             "bus_utilization": utilization
         }
 
-    # 🔹 Notifications
-    @staticmethod
-    def create_notification(db, message: str, route_id: str = None):
-        notification = Notification(
-            message=message,
-            route_id=route_id,
-            created_at=datetime.utcnow()
-        )
-
-        db.add(notification)
-        db.commit()
-        db.refresh(notification)
-
-        return notification
-
-    @staticmethod
-    def get_notifications(db):
-        return db.query(Notification).all()
+    
 
     # 🔹 System health
     @staticmethod

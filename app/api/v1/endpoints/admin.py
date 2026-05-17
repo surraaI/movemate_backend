@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_roles
 from app.db.session import get_db
 from app.models.enums import UserRole
 from app.services.admin_service import AdminService
+from app.services.event_service import EventService
 from app.schemas.admin import (
     DashboardStats,
     SystemHealth,
@@ -14,6 +16,7 @@ from app.schemas.admin import (
     DriverCreateRequest,
     UserCreatedResponse,
 )
+from app.schemas.event import ActivityTrendOut
 from app.models.user import User
 
 router = APIRouter(tags=["Admin Dashboard"])
@@ -93,6 +96,37 @@ def advanced(
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
 ):
     return AdminService.advanced_metrics(db)
+
+
+# 🔹 Activity trends (time-windowed analytics)
+@router.get("/analytics/activity-trends", response_model=ActivityTrendOut)
+def activity_trends(
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+    days_back: int = Query(7, description="Number of days to look back (default: 7)"),
+    granularity: str = Query("day", description="Aggregation granularity: 'hour', 'day', 'week'"),
+):
+    """
+    Get activity trends over a time window.
+    
+    Query Parameters:
+    - days_back: How many days back to analyze (default: 7)
+    - granularity: 'hour', 'day', or 'week' (default: 'day')
+    
+    Returns aggregated event counts and metrics for the period.
+    """
+    if granularity not in ["hour", "day", "week"]:
+        raise HTTPException(status_code=400, detail="Granularity must be 'hour', 'day', or 'week'")
+    
+    if days_back < 1 or days_back > 365:
+        raise HTTPException(status_code=400, detail="days_back must be between 1 and 365")
+    
+    to_time = datetime.utcnow()
+    from_time = to_time - timedelta(days=days_back)
+    
+    trends = EventService.get_activity_trends(db, from_time, to_time, granularity)
+    
+    return ActivityTrendOut(**trends)
 
 
 # 🔹 Notifications
