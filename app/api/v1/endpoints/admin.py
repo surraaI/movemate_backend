@@ -102,24 +102,6 @@ def advanced(
     return AdminService.advanced_metrics(db)
 
 
-# 🔹 Notifications
-@router.post("/notifications")
-def send_notification(
-    data: NotificationCreate,
-    db: Session = Depends(get_db),
-    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
-):
-    return AdminService.create_notification(db, data.message, data.route_id)
-
-
-@router.get("/notifications")
-def get_notifications(
-    db: Session = Depends(get_db),
-    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-
-):
-    return AdminService.get_notifications(db)
 
 
 # 🔹 System health

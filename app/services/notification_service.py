@@ -53,6 +53,10 @@ class NotificationService:
 
     
         return notification
+    
+    @staticmethod
+    def get_notifications(db):
+        return db.query(Notification).all()
 
     @staticmethod
     def mark_as_read(db: Session, notification_id: str):

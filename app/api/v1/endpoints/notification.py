@@ -39,8 +39,11 @@ def create_notification(
 # GET CURRENT USER NOTIFICATIONS
 # Any authenticated user can access
 # =========================================================
-@router.get("/")
-def get_notifications(
+@router.get(
+    "/my",
+    response_model=list[NotificationOut],
+)
+def get_my_notifications(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -49,6 +52,20 @@ def get_notifications(
         .filter(Notification.user_id == current_user.user_id)
         .all()
     )
+
+
+@router.get(
+    "/all",
+    response_model=list[NotificationOut],
+)
+def get_all_notifications(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_user),
+):
+    return NotificationService.get_notifications(db)
+
+    
+    
 
 
 # =========================================================

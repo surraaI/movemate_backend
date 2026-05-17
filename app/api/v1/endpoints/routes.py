@@ -3,15 +3,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import require_roles
 from app.db.session import get_db
-from app.models.enums import UserRole
+from app.services.route_service import RouteService
+from app.schemas.route import RouteCreate, RouteUpdate, RouteStatusUpdate, RouteOut
 from app.models.user import User
 from app.schemas.route import RouteCreate, RouteDetailOut, RouteOut, RouteStatusUpdate, RouteUpdate
 from app.schemas.route_stop import RouteStopOut
 from app.services.route_service import RouteService
+from movemate_backend.app.core.deps import require_roles
+from movemate_backend.app.models.enums import UserRole
 
-router = APIRouter()
+router = APIRouter(prefix="/routes", tags=["Routes"])
 
 
 def _to_route_detail(route) -> RouteDetailOut:
@@ -63,14 +65,17 @@ def get_route(
     return _to_route_detail(RouteService(db).get_route(route_id))
 
 
-@router.patch("/{route_id}", response_model=RouteOut)
+# -------------------------
+# UPDATE
+# -------------------------
+@router.patch("/{route_code}", response_model=RouteOut)
 def update_route(
-    route_id: str,
+    route_code: str,
     payload: RouteUpdate,
     db: Annotated[Session, Depends(get_db)],
     _user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
 ) -> RouteOut:
-    return RouteOut.model_validate(RouteService(db).update_route(route_id, payload))
+    return RouteOut.model_validate(RouteService(db).update_route(route_code, payload))
 
 
 @router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)

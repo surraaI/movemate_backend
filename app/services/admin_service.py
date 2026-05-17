@@ -49,45 +49,55 @@ class AdminService:
         db.commit()
         db.refresh(user)
         return user
-
-    # 🔹 Assign bus → route
+    
+     # -------------------------
+    # assign bus to route
+    # -------------------------
     @staticmethod
-    def assign_bus_to_route(db, bus_id: str, route_id: str):
+    def assign_bus_to_route(db, bus_id: str, route_code: str):
         bus = db.query(Bus).filter(Bus.bus_id == bus_id).first()
         if not bus:
             return None, "Bus not found"
 
-        route = db.query(Route).filter(Route.route_id == route_id).first()
+        route = db.query(Route).filter(Route.route_code == route_code).first()
         if not route:
             return None, "Route not found"
 
         if route.status != "ACTIVE":
             return None, "Cannot assign to inactive route"
 
-        bus.route_id = route_id
+        bus.route_id = route.id   # IMPORTANT FIX
 
         db.commit()
         db.refresh(bus)
 
         return bus, None
 
-    # 🔹 Get route assignments
+    # -------------------------
+    # route assignments
+    # -------------------------
     @staticmethod
     def get_route_assignments(db):
-        routes = db.query(Route).all()
+        routes = db.query(Route).filter(Route.is_deleted == False).all()
+
         result = []
 
         for route in routes:
-            buses = db.query(Bus).filter(Bus.route_id == route.route_id).all()
+            buses = db.query(Bus).filter(Bus.route_id == route.id).all()
 
             result.append({
-                "route_id": route.route_id,
-                "origin": route.origin,
-                "destination": route.destination,
+                "route_id": route.id,
+                "route_code": route.route_code,
+                "route_name": route.route_name,
+                "status": route.status,
                 "buses": [{"bus_id": b.bus_id} for b in buses]
             })
 
         return result
+    
+    
+    
+
 
     # 🔹 Real-time buses
     @staticmethod
@@ -129,37 +139,43 @@ class AdminService:
     # 🔹 Demand analytics
     @staticmethod
     def demand_analytics(db):
-        routes = (
-            db.query(Ticket.route_id, func.count(Ticket.id))
+        top_routes = (
+            db.query(
+                Ticket.route_id,
+                func.count(Ticket.id).label("ticket_count")
+            )
             .group_by(Ticket.route_id)
             .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
-        hours = (
+        peak_hours = (
             db.query(
-                extract("hour", Ticket.created_at),
-                func.count(Ticket.id)
+                extract("hour", Ticket.created_at).label("hour"),
+                func.count(Ticket.id).label("ticket_count")
             )
             .group_by("hour")
-            .all()
-        )
-
-        stops = (
-            db.query(
-                Ticket.origin_stop_id,
-                func.count(Ticket.id)
-            )
-            .group_by(Ticket.origin_stop_id)
+            .order_by("hour")
             .all()
         )
 
         return {
-            "top_routes": routes[:5],
-            "peak_hours": hours[:5],
-            "popular_stops": stops[:5]
+            "top_routes": [
+                {
+                    "route_id": route_id,
+                    "ticket_count": count
+                }
+                for route_id, count in top_routes
+            ],
+            "peak_hours": [
+                {
+                    "hour": int(hour) if hour is not None else 0,
+                    "ticket_count": count
+                }
+                for hour, count in peak_hours
+            ],
+            "popular_stops": []
         }
-
     # 🔹 Advanced metrics
     @staticmethod
     def advanced_metrics(db):
@@ -204,24 +220,7 @@ class AdminService:
             "bus_utilization": utilization
         }
 
-    # 🔹 Notifications
-    @staticmethod
-    def create_notification(db, message: str, route_id: str = None):
-        notification = Notification(
-            message=message,
-            route_id=route_id,
-            created_at=datetime.utcnow()
-        )
-
-        db.add(notification)
-        db.commit()
-        db.refresh(notification)
-
-        return notification
-
-    @staticmethod
-    def get_notifications(db):
-        return db.query(Notification).all()
+    
 
     # 🔹 System health
     @staticmethod
