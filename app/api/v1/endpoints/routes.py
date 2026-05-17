@@ -14,7 +14,7 @@ from app.core.deps import require_roles
 from app.models.enums import UserRole
 from app.services.route_service import RouteService, route_to_detail_out
 
-router = APIRouter(prefix="/routes", tags=["Routes"])
+router = APIRouter()
 
 
 @router.post("", response_model=RouteOut, status_code=status.HTTP_201_CREATED)
