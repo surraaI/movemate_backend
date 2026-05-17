@@ -1,13 +1,14 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.enums import RouteStatus
 from app.models.route import Route
 from app.schemas.route import RouteDetailOut
 from app.schemas.route_stop import RouteStopOut
 from app.repositories.route_repository import RouteRepository
 from app.repositories.route_stop_repository import RouteStopRepository
 from app.schemas.route import RouteCreate, RouteStatusUpdate, RouteUpdate
+from app.models.enums import RouteStatus
+from app.schemas.route import RouteCreate, RouteUpdate, RouteStatusUpdate
 
 
 def route_to_detail_out(route: Route) -> RouteDetailOut:
@@ -37,11 +38,30 @@ def route_to_detail_out(route: Route) -> RouteDetailOut:
 class RouteService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = RouteRepository(db)
-        self.route_stop_repo = RouteStopRepository(db)
 
+    # -------------------------
+    # helper
+    # -------------------------
+    def _get_by_code(self, route_code: str) -> Route:
+        route = (
+            self.db.query(Route)
+            .filter(Route.route_code == route_code, Route.is_deleted == False)
+            .first()
+        )
+        if not route:
+            raise HTTPException(status_code=404, detail="Route not found")
+        return route
+
+    # -------------------------
+    # create
+    # -------------------------
     def create_route(self, payload: RouteCreate) -> Route:
-        existing = self.repo.get_by_route_code(payload.route_code)
+        existing = (
+            self.db.query(Route)
+            .filter(Route.route_code == payload.route_code)
+            .first()
+        )
+
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -55,55 +75,59 @@ class RouteService:
         )
         created = self.repo.create(route)
         self.db.commit()
-        return created
-
-    def list_routes(self) -> list[Route]:
-        return self.repo.list_all(include_stops=True)
-
-    def get_route(self, route_id: str) -> Route:
-        route = self.repo.get_by_id(route_id, include_stops=True)
-        if not route:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
+        self.db.refresh(route)
         return route
 
-    def update_route(self, route_id: str, payload: RouteUpdate) -> Route:
-        route = self.repo.get_by_id(route_id)
-        if not route:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
+    # -------------------------
+    # list
+    # -------------------------
+    def list_routes(self) -> list[Route]:
+        return (
+            self.db.query(Route)
+            .filter(Route.is_deleted == False)
+            .all()
+        )
 
-        if payload.route_name is not None:
+    # -------------------------
+    # get
+    # -------------------------
+    def get_route(self, route_code: str) -> Route:
+        return self._get_by_code(route_code)
+
+    # -------------------------
+    # update
+    # -------------------------
+    def update_route(self, route_code: str, payload: RouteUpdate) -> Route:
+        route = self._get_by_code(route_code)
+
+        if payload.route_name:
             route.route_name = payload.route_name
         if payload.price is not None:
             route.price = payload.price
         if payload.distance_km is not None:
             route.distance_km = payload.distance_km
 
-        updated = self.repo.save(route)
         self.db.commit()
-        return updated
+        self.db.refresh(route)
+        return route
 
-    def update_status(self, route_id: str, payload: RouteStatusUpdate) -> Route:
-        route = self.repo.get_by_id(route_id)
-        if not route:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
-
-        if payload.status == RouteStatus.ACTIVE:
-            total_stops = len(self.route_stop_repo.list_for_route(route_id))
-            if total_stops < 2:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Active routes must have at least 2 stops",
-                )
+    # -------------------------
+    # update status
+    # -------------------------
+    def update_status(self, route_code: str, payload: RouteStatusUpdate) -> Route:
+        route = self._get_by_code(route_code)
 
         route.status = payload.status
-        updated = self.repo.save(route)
-        self.db.commit()
-        return updated
 
-    def soft_delete_route(self, route_id: str) -> None:
-        route = self.repo.get_by_id(route_id)
-        if not route:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
+        self.db.commit()
+        self.db.refresh(route)
+        return route
+
+    # -------------------------
+    # soft delete
+    # -------------------------
+    def soft_delete_route(self, route_code: str) -> None:
+        route = self._get_by_code(route_code)
         route.is_deleted = True
-        self.repo.save(route)
+
         self.db.commit()
