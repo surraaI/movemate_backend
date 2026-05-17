@@ -10,8 +10,8 @@ from app.models.user import User
 from app.schemas.route import RouteCreate, RouteDetailOut, RouteOut, RouteStatusUpdate, RouteUpdate
 from app.schemas.route_stop import RouteStopOut
 from app.services.route_service import RouteService
-from movemate_backend.app.core.deps import require_roles
-from movemate_backend.app.models.enums import UserRole
+from app.core.deps import require_roles
+from app.models.enums import UserRole
 
 router = APIRouter(prefix="/routes", tags=["Routes"])
 
