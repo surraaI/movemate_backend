@@ -27,6 +27,8 @@ def route_to_detail_out(route: Route) -> RouteDetailOut:
         id=route.id,
         route_code=route.route_code,
         route_name=route.route_name,
+        price=route.price,
+        distance_km=route.distance_km,
         status=route.status,
         is_deleted=route.is_deleted,
         created_at=route.created_at,
