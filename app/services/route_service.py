@@ -2,11 +2,37 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.route import Route
+from app.schemas.route import RouteDetailOut
+from app.schemas.route_stop import RouteStopOut
 from app.repositories.route_repository import RouteRepository
 from app.repositories.route_stop_repository import RouteStopRepository
 from app.schemas.route import RouteCreate, RouteStatusUpdate, RouteUpdate
 from app.models.enums import RouteStatus
 from app.schemas.route import RouteCreate, RouteUpdate, RouteStatusUpdate
+
+
+def route_to_detail_out(route: Route) -> RouteDetailOut:
+    stops = [
+        RouteStopOut(
+            stop_id=item.stop.id,
+            stop_name=item.stop.name,
+            latitude=item.stop.latitude,
+            longitude=item.stop.longitude,
+            sequence=item.sequence,
+            created_at=item.created_at,
+        )
+        for item in route.route_stops
+    ]
+    return RouteDetailOut(
+        id=route.id,
+        route_code=route.route_code,
+        route_name=route.route_name,
+        status=route.status,
+        is_deleted=route.is_deleted,
+        created_at=route.created_at,
+        updated_at=route.updated_at,
+        stops=stops,
+    )
 
 
 class RouteService:
@@ -41,13 +67,13 @@ class RouteService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Route code already exists",
             )
-
         route = Route(
             route_code=payload.route_code,
             route_name=payload.route_name,
+            price=payload.price,
+            distance_km=payload.distance_km,
         )
-
-        self.db.add(route)
+        created = self.repo.create(route)
         self.db.commit()
         self.db.refresh(route)
         return route
@@ -76,6 +102,10 @@ class RouteService:
 
         if payload.route_name:
             route.route_name = payload.route_name
+        if payload.price is not None:
+            route.price = payload.price
+        if payload.distance_km is not None:
+            route.distance_km = payload.distance_km
 
         self.db.commit()
         self.db.refresh(route)

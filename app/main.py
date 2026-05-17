@@ -12,11 +12,17 @@ from app.db.session import engine
 from app.workers.scheduler import start_scheduler
 from app.db.session import SessionLocal
 from app.db.seed import seed_superadmin
+# Hugging Face ETA model download — re-enable when hosting the .joblib remotely again
+# from app.services.eta_model_loader import ensure_eta_model_downloaded
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup logic
+    # ensure_eta_model_downloaded()
+
+    Base.metadata.create_all(bind=engine)
+
     db = SessionLocal()
     try:
         seed_superadmin(db)
@@ -41,6 +47,7 @@ def create_app() -> FastAPI:
     
     origins = [
         "http://localhost:54028",
+        "http://127.0.0.1:5173",
     ]
 
     app.add_middleware(

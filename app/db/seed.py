@@ -46,5 +46,6 @@ def seed_superadmin(db: Session) -> User | None:
 
     db.commit()
     db.refresh(user)
+    print("superadmin created")
     return user
 

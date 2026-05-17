@@ -35,8 +35,12 @@ class Settings(BaseSettings):
     
     # 🔹 Other Settings
     ETA_MODEL_PATH: str = "ETA_datasets/eta_model.joblib"
-    SUPERADMIN_EMAIL: Optional[str] = None
-    SUPERADMIN_PASSWORD: Optional[str] = None
+    ETA_MODEL_HF_REPO_ID: str | None = None
+    ETA_MODEL_HF_FILENAME: str = "eta_model.joblib"
+    ETA_MODEL_HF_REVISION: str = "main"
+    HUGGINGFACE_HUB_TOKEN: str | None = None
+    SUPERADMIN_EMAIL: str | None = None
+    SUPERADMIN_PASSWORD: str | None = None
     SUPERADMIN_FULL_NAME: str = "Super Admin"
     SUPERADMIN_PHONE_NUMBER: str = "N/A"
 

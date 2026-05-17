@@ -11,6 +11,7 @@ from app.models.gps_tracking import (
     ActiveTrip,
     BusCurrentLocation,
     BusLocationHistory,
+    CommuterTripLocation,
 )
 
 from app.models.bus import Bus

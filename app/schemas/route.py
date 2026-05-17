@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -11,12 +12,16 @@ class RouteCreate(BaseModel):
 
     route_code: str = Field(alias="routeCode", min_length=1, max_length=64)
     route_name: str = Field(alias="routeName", min_length=1, max_length=255)
+    price: Decimal = Field(alias="price", gt=0)
+    distance_km: float | None = Field(default=None, alias="distanceKm")
 
 
 class RouteUpdate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     route_name: str | None = Field(default=None, alias="routeName", min_length=1, max_length=255)
+    price: Decimal | None = Field(default=None, alias="price", gt=0)
+    distance_km: float | None = Field(default=None, alias="distanceKm")
 
 
 class RouteStatusUpdate(BaseModel):
@@ -31,6 +36,8 @@ class RouteOut(BaseModel):
     id: str
     route_code: str = Field(serialization_alias="routeCode")
     route_name: str = Field(serialization_alias="routeName")
+    price: Decimal
+    distance_km: float | None = Field(serialization_alias="distanceKm")
     status: RouteStatus
     is_deleted: bool = Field(serialization_alias="isDeleted")
     created_at: datetime = Field(serialization_alias="createdAt")

@@ -29,7 +29,7 @@ def add_route_stop(
     route_id: str,
     payload: RouteStopAddRequest,
     db: Annotated[Session, Depends(get_db)],
-    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
+    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN))],
 ) -> list[RouteStopOut]:
     items = RouteStopService(db).add_stop(route_id, payload)
     return [_to_out(item) for item in items]
@@ -40,7 +40,7 @@ def reorder_route_stops(
     route_id: str,
     payload: RouteStopReorderRequest,
     db: Annotated[Session, Depends(get_db)],
-    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
+    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN))],
 ) -> list[RouteStopOut]:
     items = RouteStopService(db).reorder_stops(route_id, payload)
     return [_to_out(item) for item in items]
@@ -51,7 +51,7 @@ def delete_route_stop(
     route_id: str,
     stop_id: str,
     db: Annotated[Session, Depends(get_db)],
-    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN))],
+    _user: Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN))],
 ) -> Response:
     RouteStopService(db).remove_stop(route_id, stop_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

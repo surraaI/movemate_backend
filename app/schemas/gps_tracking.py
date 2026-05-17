@@ -39,6 +39,26 @@ class TripEndRequest(BaseModel):
         return value.astimezone(UTC)
 
 
+class CommuterLocationUpdateRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    latitude: float = Field(ge=-90.0, le=90.0)
+    longitude: float = Field(ge=-180.0, le=180.0)
+    timestamp: datetime
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("timestamp must include timezone information")
+        return value.astimezone(UTC)
+
+    @field_validator("latitude", "longitude")
+    @classmethod
+    def round_coords(cls, value: float) -> float:
+        return round(value, 6)
+
+
 class GPSUpdateRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -123,3 +143,7 @@ class ETAPredictionOut(BaseModel):
     predicted_speed_kph: float = Field(serialization_alias="predictedSpeedKph")
     eta_minutes: int = Field(serialization_alias="etaMinutes")
     estimated_arrival: datetime = Field(serialization_alias="estimatedArrival")
+    commuter_latitude: float | None = Field(default=None, serialization_alias="commuterLatitude")
+    commuter_longitude: float | None = Field(default=None, serialization_alias="commuterLongitude")
+    distance_to_bus_km: float | None = Field(default=None, serialization_alias="distanceToBusKm")
+    eta_to_bus_minutes: int | None = Field(default=None, serialization_alias="etaToBusMinutes")

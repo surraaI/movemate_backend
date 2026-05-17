@@ -22,6 +22,7 @@ class Ticket(Base):
         String(36), ForeignKey("users.user_id"), nullable=False, index=True
     )
     route_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    origin_stop_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     fare: Mapped[int] = mapped_column(Integer, nullable=False)
     qr_code: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

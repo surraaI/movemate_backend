@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from sqlalchemy import func, extract
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.user import User
 from app.models.bus import Bus
@@ -9,12 +10,25 @@ from app.models.location import Location
 from app.models.ticket import Ticket
 from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
-from app.models.enums import UserRole, UserStatus
+from app.models.enums import UserRole, UserStatus, RouteStatus
 from app.models.profile import AdminProfile, DriverProfile
 from app.core.security import hash_password
 
 
 class AdminService:
+    @staticmethod
+    def list_users_for_admin(db: Session) -> list[User]:
+        return (
+            db.query(User)
+            .options(
+                joinedload(User.commuter_profile),
+                joinedload(User.driver_profile),
+                joinedload(User.admin_profile),
+            )
+            .order_by(User.created_at.desc())
+            .all()
+        )
+
     @staticmethod
     def _normalize_permissions(permissions: list[str]) -> list[str]:
         values = {permission.strip() for permission in permissions if permission and permission.strip()}
@@ -26,7 +40,8 @@ class AdminService:
         return {
             "total_users": db.query(User).count(),
             "total_buses": db.query(Bus).count(),
-            "active_routes": db.query(Route).filter(Route.status == "ACTIVE").count(),
+            # compare against the RouteStatus enum value
+            "active_routes": db.query(Route).filter(Route.status == RouteStatus.ACTIVE).count(),
         }
 
     # 🔹 Change user status
@@ -59,7 +74,8 @@ class AdminService:
         if not bus:
             return None, "Bus not found"
 
-        route = db.query(Route).filter(Route.route_code == route_code).first()
+        # Route model uses `id` as the primary key
+        route = db.query(Route).filter(Route.id == route_id).first()
         if not route:
             return None, "Route not found"
 
@@ -83,6 +99,7 @@ class AdminService:
         result = []
 
         for route in routes:
+            # buses reference route.id in the Bus.route_id foreign key
             buses = db.query(Bus).filter(Bus.route_id == route.id).all()
 
             result.append({
@@ -139,42 +156,38 @@ class AdminService:
     # 🔹 Demand analytics
     @staticmethod
     def demand_analytics(db):
-        top_routes = (
-            db.query(
-                Ticket.route_id,
-                func.count(Ticket.id).label("ticket_count")
-            )
+        # Top routes by ticket count
+        raw_routes = (
+            db.query(Ticket.route_id, func.count(Ticket.id).label("cnt"))
             .group_by(Ticket.route_id)
             .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
-        peak_hours = (
+        top_routes = [
+            {"route_id": r[0], "count": int(r[1])} for r in raw_routes
+        ]
+
+        # Peak hours (hour of day)
+        raw_hours = (
             db.query(
                 extract("hour", Ticket.created_at).label("hour"),
-                func.count(Ticket.id).label("ticket_count")
+                func.count(Ticket.id).label("cnt")
             )
             .group_by("hour")
-            .order_by("hour")
+            .order_by(func.count(Ticket.id).desc())
             .all()
         )
 
+        peak_hours = [{"hour": int(h[0]), "count": int(h[1])} for h in raw_hours]
+
+        # Ticket model currently does not store origin_stop_id — return empty for now
+        popular_stops = []
+
         return {
-            "top_routes": [
-                {
-                    "route_id": route_id,
-                    "ticket_count": count
-                }
-                for route_id, count in top_routes
-            ],
-            "peak_hours": [
-                {
-                    "hour": int(hour) if hour is not None else 0,
-                    "ticket_count": count
-                }
-                for hour, count in peak_hours
-            ],
-            "popular_stops": []
+            "top_routes": top_routes[:5],
+            "peak_hours": peak_hours[:5],
+            "popular_stops": popular_stops
         }
     # 🔹 Advanced metrics
     @staticmethod
