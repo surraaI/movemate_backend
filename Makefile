@@ -1,7 +1,7 @@
-PYTHON ?= python3
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PIP ?= $(PYTHON) -m pip
-UVICORN ?= uvicorn
-ALEMBIC ?= alembic
+UVICORN ?= $(if $(wildcard .venv/bin/uvicorn),.venv/bin/uvicorn,uvicorn)
+ALEMBIC ?= $(if $(wildcard .venv/bin/alembic),.venv/bin/alembic,alembic)
 HOST ?= 0.0.0.0
 PORT ?= 8000
 

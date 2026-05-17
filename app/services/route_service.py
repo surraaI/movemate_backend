@@ -47,7 +47,12 @@ class RouteService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Route code already exists",
             )
-        route = Route(route_code=payload.route_code, route_name=payload.route_name)
+        route = Route(
+            route_code=payload.route_code,
+            route_name=payload.route_name,
+            price=payload.price,
+            distance_km=payload.distance_km,
+        )
         created = self.repo.create(route)
         self.db.commit()
         return created
@@ -68,6 +73,10 @@ class RouteService:
 
         if payload.route_name is not None:
             route.route_name = payload.route_name
+        if payload.price is not None:
+            route.price = payload.price
+        if payload.distance_km is not None:
+            route.distance_km = payload.distance_km
 
         updated = self.repo.save(route)
         self.db.commit()
