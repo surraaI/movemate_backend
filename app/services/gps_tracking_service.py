@@ -46,7 +46,13 @@ class GPSTrackingService:
 
         existing_active = self.repo.get_active_trip_for_driver(driver.user_id)
         if existing_active is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Driver already has active trip")
+            # Defensive self-heal for legacy/inconsistent rows marked ACTIVE but already ended.
+            if existing_active.ended_at is not None:
+                existing_active.status = TripStatus.COMPLETED
+                self.repo.save_trip(existing_active)
+                self.db.commit()
+            else:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Driver already has active trip")
 
         vehicle_id = (payload.vehicle_id or driver.driver_profile.assigned_vehicle_id or "").strip()
         if not vehicle_id:
