@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     
     # 🔹 Other Settings
     ETA_MODEL_PATH: str = "ETA_datasets/eta_model.joblib"
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
     SUPERADMIN_EMAIL: str | None = None
     SUPERADMIN_PASSWORD: str | None = None
     SUPERADMIN_FULL_NAME: str = "Super Admin"

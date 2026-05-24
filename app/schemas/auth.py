@@ -22,6 +22,26 @@ class RefreshRequest(BaseModel):
     refresh_token: str = Field(alias="refreshToken", min_length=1)
 
 
+class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    reset_token: str = Field(serialization_alias="resetToken")
+    expires_at: str = Field(serialization_alias="expiresAt")
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    reset_token: str = Field(alias="resetToken", min_length=1)
+    new_password: str = Field(alias="newPassword", min_length=8, max_length=128)
+
+
 class RegisterRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

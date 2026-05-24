@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
+    create_password_reset_token,
     decode_token,
     hash_password,
     verify_password,
@@ -138,3 +139,37 @@ def logout(db: Session, refresh_token: str) -> None:
     if row and row.revoked_at is None:
         row.revoked_at = datetime.now(UTC)
         db.commit()
+
+
+def forgot_password(db: Session, email: str) -> tuple[str, datetime]:
+    user = db.scalar(select(User).where(User.email == email.lower()))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    reset_token = create_password_reset_token(user.user_id)
+    expires_at = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    return reset_token, expires_at
+
+
+def reset_password(db: Session, reset_token: str, new_password: str) -> None:
+    try:
+        payload = decode_token(reset_token)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired reset token")
+
+    if payload.get("type") != "password_reset":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid reset token")
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    user.password_hash = hash_password(new_password)
+    for row in user.refresh_tokens:
+        if row.revoked_at is None:
+            row.revoked_at = datetime.now(UTC)
+    db.commit()

@@ -47,6 +47,21 @@ def manage_user(
     return {"message": "User updated successfully"}
 
 
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> None:
+    try:
+        deleted = AdminService.delete_user(db, user_id, acting_user=current_user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+    if deleted is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+
 # 🔹 Assign bus → route
 @router.post("/assignments/bus-route")
 def assign_bus(
