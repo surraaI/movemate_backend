@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, extract
 from sqlalchemy.orm import Session, joinedload
 
+from app.services import user_service
 from app.models.user import User
 from app.models.bus import Bus
 from app.models.route import Route
@@ -62,6 +63,24 @@ class AdminService:
             return None
 
         db.commit()
+        db.refresh(user)
+        return user
+
+    @staticmethod
+    def delete_user(db: Session, user_id: str, *, acting_user: User | None = None) -> User | None:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            return None
+
+        if acting_user is not None and user.user_id == acting_user.user_id:
+            user_service.delete_account(db, user)
+            db.refresh(user)
+            return user
+
+        if user.role == UserRole.SUPERADMIN and (acting_user is None or acting_user.role != UserRole.SUPERADMIN):
+            raise ValueError("Superadmin accounts can only be deleted by another superadmin")
+
+        user_service.delete_account(db, user)
         db.refresh(user)
         return user
     
