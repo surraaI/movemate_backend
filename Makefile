@@ -5,7 +5,7 @@ ALEMBIC ?= $(if $(wildcard .venv/bin/alembic),.venv/bin/alembic,alembic)
 HOST ?= 0.0.0.0
 PORT ?= 8000
 
-.PHONY: help install run dev migrate revision downgrade current history seed-superadmin eta-model-download
+.PHONY: help install run dev migrate revision downgrade current history seed-superadmin eta-model-check
 
 help:
 	@echo "Available commands:"
@@ -18,7 +18,7 @@ help:
 	@echo "  make current                        Show current Alembic revision"
 	@echo "  make history                        Show Alembic migration history"
 	@echo "  make seed-superadmin                Seed SUPERADMIN from .env"
-	@echo "  make eta-model-download             Download ETA model from Hugging Face"
+	@echo "  make eta-model-check                Verify the local ETA model file exists"
 
 install:
 	$(PIP) install --upgrade pip
@@ -48,5 +48,5 @@ history:
 seed-superadmin:
 	$(PYTHON) -c "from app.db.session import SessionLocal; from app.db.seed import seed_superadmin; db=SessionLocal(); user=seed_superadmin(db); print(user.email if user else 'SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD not set'); db.close()"
 
-eta-model-download:
-	$(PYTHON) -c "from app.services.eta_model_loader import ensure_eta_model_downloaded; print(ensure_eta_model_downloaded())"
+eta-model-check:
+	$(PYTHON) -c "from app.services.eta_model_loader import ensure_eta_model_available; print(ensure_eta_model_available())"
