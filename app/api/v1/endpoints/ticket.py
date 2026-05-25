@@ -1,8 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.schemas.ticket import TicketCreate
-from app.services.ticket_service import create_payment_session, purchase_ticket
+from app.schemas.ticket import TicketCreate, TicketResponse
+from app.services.ticket_service import (
+    create_payment_session,
+    get_ticket_qr_path,
+    get_user_ticket,
+    get_user_tickets,
+    purchase_ticket,
+)
 from app.services.payment_service import verify_payment
 from app.services.event_service import EventService
 from app.models.event import EventType
@@ -12,6 +19,35 @@ from app.core.deps import get_current_user
 from app.models.user import User
 
 router = APIRouter()
+
+
+@router.get("/me", response_model=list[TicketResponse])
+def get_my_tickets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_user_tickets(db, current_user.user_id)
+
+
+@router.get("/{ticket_id}", response_model=TicketResponse)
+def get_ticket(
+    ticket_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_user_ticket(db, current_user.user_id, ticket_id)
+
+
+@router.get("/{ticket_id}/qr")
+def get_ticket_qr(
+    ticket_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    qr_path = get_ticket_qr_path(db, current_user.user_id, ticket_id)
+    if not qr_path:
+        raise HTTPException(status_code=404, detail="QR code not found")
+    return FileResponse(qr_path, media_type="image/png", filename=f"{ticket_id}.png")
 
 
 @router.post("/start-payment")
