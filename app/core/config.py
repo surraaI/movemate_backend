@@ -35,10 +35,7 @@ class Settings(BaseSettings):
     
     # 🔹 Other Settings
     ETA_MODEL_PATH: str = "ETA_datasets/eta_model.joblib"
-    ETA_MODEL_HF_REPO_ID: str | None = None
-    ETA_MODEL_HF_FILENAME: str = "eta_model.joblib"
-    ETA_MODEL_HF_REVISION: str = "main"
-    HUGGINGFACE_HUB_TOKEN: str | None = None
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
     SUPERADMIN_EMAIL: str | None = None
     SUPERADMIN_PASSWORD: str | None = None
     SUPERADMIN_FULL_NAME: str = "Super Admin"

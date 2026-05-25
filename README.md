@@ -40,16 +40,7 @@ Set `DATABASE_URL` in `.env` with this format:
 DATABASE_URL="postgresql+psycopg://<USER>:<PASSWORD>@<HOST>:<PORT>/<DB_NAME>?sslmode=require"
 ```
 
-Optional (for large ETA model files): host `eta_model.joblib` on Hugging Face and set:
-
-```bash
-ETA_MODEL_HF_REPO_ID="<org-or-user>/<repo>"
-ETA_MODEL_HF_FILENAME="eta_model.joblib"
-ETA_MODEL_HF_REVISION="main"
-# HUGGINGFACE_HUB_TOKEN="<token>"  # only if repo is private
-```
-
-When configured, the backend downloads the model on startup.
+ETA prediction uses the local artifact in `ETA_datasets/eta_model.joblib`. Keep that file in place or update `ETA_MODEL_PATH` if you move it.
 
 ### 3) Run database migrations
 

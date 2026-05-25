@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.user import User
-from app.models.enums import UserRole
+from app.models.enums import UserRole, UserStatus
 
 from app.core.config import settings
 security = HTTPBearer()
@@ -37,6 +37,12 @@ def create_access_token(subject: str, *, role: str | None = None) -> str:
 def create_refresh_token(subject: str, jti: str) -> str:
     expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {"sub": subject, "type": "refresh", "jti": jti, "exp": expire}
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_password_reset_token(subject: str) -> str:
+    expire = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": subject, "type": "password_reset", "exp": expire}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -68,6 +74,9 @@ def get_current_user(
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if user.status != UserStatus.ACTIVE:
+        raise HTTPException(status_code=403, detail="Account is not active")
 
     return user
 

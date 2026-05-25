@@ -43,3 +43,11 @@ def deactivate(
     current: Annotated[User, Depends(get_current_user)],
 ) -> None:
     user_service.deactivate_account(db, current)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    db: Annotated[Session, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+) -> None:
+    user_service.delete_account(db, current)

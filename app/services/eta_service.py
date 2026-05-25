@@ -4,12 +4,14 @@ import csv
 import math
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.repositories.gps_tracking_repository import GPSTrackingRepository
 from app.schemas.gps_tracking import ETAPredictionOut
+from app.services.eta_model_loader import load_eta_model_bundle
 
 DEFAULT_SPEED_KPH = 22.0
 MIN_REASONABLE_SPEED_KPH = 8.0
@@ -19,6 +21,7 @@ MAX_REASONABLE_SPEED_KPH = 75.0
 class ETAService:
     _historical_stats: dict[tuple[int, int], float] | None = None
     _historical_avg_speed: float | None = None
+    _eta_model_bundle: dict[str, Any] | None = None
 
     def __init__(self, db: Session):
         self.db = db
@@ -66,8 +69,17 @@ class ETAService:
             destination.stop.latitude,
             destination.stop.longitude,
         )
-        predicted_speed_kph = self._predict_speed_kph(current.gps_timestamp, current.speed_kph)
-        eta_minutes = max(1, math.ceil((remaining_distance_km / predicted_speed_kph) * 60))
+        eta_minutes, predicted_speed_kph = self._predict_eta_with_model(
+            gps_timestamp=current.gps_timestamp,
+            current_latitude=current.latitude,
+            current_longitude=current.longitude,
+            destination_latitude=destination.stop.latitude,
+            destination_longitude=destination.stop.longitude,
+            remaining_distance_km=remaining_distance_km,
+        )
+        if eta_minutes is None or predicted_speed_kph is None:
+            predicted_speed_kph = self._predict_speed_kph(current.gps_timestamp, current.speed_kph)
+            eta_minutes = max(1, math.ceil((remaining_distance_km / predicted_speed_kph) * 60))
         estimated_arrival = datetime.now(UTC) + timedelta(minutes=eta_minutes)
 
         clat: float | None = commuter_latitude
@@ -126,6 +138,67 @@ class ETAService:
             predicted = (0.6 * live_speed) + (0.4 * historical_speed)
 
         return min(MAX_REASONABLE_SPEED_KPH, max(MIN_REASONABLE_SPEED_KPH, predicted))
+
+    @classmethod
+    def _predict_eta_with_model(
+        cls,
+        *,
+        gps_timestamp: datetime,
+        current_latitude: float,
+        current_longitude: float,
+        destination_latitude: float,
+        destination_longitude: float,
+        remaining_distance_km: float,
+    ) -> tuple[int | None, float | None]:
+        bundle = cls._get_eta_model_bundle()
+        if bundle is None:
+            return None, None
+
+        model = bundle.get("model")
+        vectorizer = bundle.get("vectorizer")
+        if model is None or vectorizer is None:
+            return None, None
+
+        now = gps_timestamp.astimezone(UTC) if gps_timestamp.tzinfo else gps_timestamp.replace(tzinfo=UTC)
+        features = {
+            "day_of_week": now.weekday(),
+            "hour_of_day": now.hour,
+            "beginning_minute": now.minute,
+            "mileage_km": remaining_distance_km,
+            "initial_latitude": current_latitude,
+            "initial_longitude": current_longitude,
+            "final_latitude": destination_latitude,
+            "final_longitude": destination_longitude,
+            "month": now.month,
+        }
+
+        try:
+            x_values = vectorizer.transform([features])
+            predicted_hours = float(model.predict(x_values)[0])
+        except Exception:
+            return None, None
+
+        if not math.isfinite(predicted_hours) or predicted_hours <= 0:
+            return None, None
+
+        eta_minutes = max(1, math.ceil(predicted_hours * 60))
+        predicted_speed_kph = remaining_distance_km / predicted_hours if predicted_hours > 0 else None
+        if predicted_speed_kph is None or not math.isfinite(predicted_speed_kph):
+            return None, None
+
+        return eta_minutes, predicted_speed_kph
+
+    @classmethod
+    def _get_eta_model_bundle(cls) -> dict[str, Any] | None:
+        if cls._eta_model_bundle is not None:
+            return cls._eta_model_bundle
+
+        try:
+            cls._eta_model_bundle = load_eta_model_bundle()
+        except (FileNotFoundError, KeyError, TypeError, OSError, ValueError):
+            cls._eta_model_bundle = None
+
+        return cls._eta_model_bundle
 
     @classmethod
     def _ensure_historical_loaded(cls) -> None:

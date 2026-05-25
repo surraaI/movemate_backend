@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -55,11 +56,21 @@ def change_password(db: Session, user: User, data: ChangePasswordRequest) -> Non
             detail="Current password is incorrect",
         )
     user.password_hash = hash_password(data.new_password)
+    for refresh_token in user.refresh_tokens:
+        if refresh_token.revoked_at is None:
+            refresh_token.revoked_at = datetime.now(UTC)
+    db.add(user)
+    db.commit()
+
+
+def delete_account(db: Session, user: User) -> None:
+    user.status = UserStatus.INACTIVE
+    for refresh_token in user.refresh_tokens:
+        if refresh_token.revoked_at is None:
+            refresh_token.revoked_at = datetime.now(UTC)
     db.add(user)
     db.commit()
 
 
 def deactivate_account(db: Session, user: User) -> None:
-    user.status = UserStatus.INACTIVE
-    db.add(user)
-    db.commit()
+    delete_account(db, user)
