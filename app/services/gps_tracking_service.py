@@ -189,7 +189,8 @@ class GPSTrackingService:
         route = self.repo.get_route(route_id)
         if route is None or route.is_deleted:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Route not found")
-        live = [self._to_live_location(item) for item in self.repo.list_active_buses_for_route(route_id)]
+        # Ensure we query active buses by the route primary key (id)
+        live = [self._to_live_location(item) for item in self.repo.list_active_buses_for_route(route.id)]
         return RouteFleetOut(route_id=route_id, active_buses=live)
 
     def get_live_fleet(self) -> AdminFleetOut:
