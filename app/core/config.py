@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     FIREBASE_SERVICE_ACCOUNT: Optional[str] = None
     FIREBASE_PROJECT_ID: Optional[str] = None
 
+    # 🔹 Email / SMTP config (Gmail-compatible)
+    EMAIL_HOST: str = "smtp.gmail.com"
+    EMAIL_PORT: int = 587
+    EMAIL_USERNAME: Optional[str] = None
+    EMAIL_PASSWORD: Optional[str] = None
+    EMAIL_FROM: Optional[str] = None
+    EMAIL_USE_TLS: bool = True
+    EMAIL_USE_SSL: bool = False
+
     # 🔹 Chapa payment config (optional for development)
     CHAPA_SECRET_KEY: Optional[str] = None
     CHAPA_BASE_URL: str = "https://api.chapa.co/v1"

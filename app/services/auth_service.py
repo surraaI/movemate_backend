@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+import logging
 
 import jwt
 from fastapi import HTTPException, status
@@ -22,6 +23,10 @@ from app.models.profile import CommuterProfile
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import RegisterRequest, TokenPair
+from app.services.email_service import EmailService
+
+
+logger = logging.getLogger(__name__)
 
 
 def _issue_tokens(db: Session, user: User) -> TokenPair:
@@ -66,6 +71,12 @@ def register(db: Session, data: RegisterRequest) -> TokenPair:
     db.refresh(user)
     pair = _issue_tokens(db, user)
     db.commit()
+    logger.info("User registered: %s — sending welcome email", user.email)
+    try:
+        EmailService.send_welcome_email(user.email, user.full_name)
+        logger.info("Welcome email queued for %s", user.email)
+    except Exception:
+        logger.exception("Failed to send welcome email for %s", user.email)
     return pair
 
 
@@ -148,6 +159,9 @@ def forgot_password(db: Session, email: str) -> tuple[str, datetime]:
 
     reset_token = create_password_reset_token(user.user_id)
     expires_at = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    logger.info("Password reset requested for %s; sending reset email", user.email)
+    EmailService.send_password_reset_email(user.email, reset_token, expires_at)
+    logger.info("Password reset email flow completed for %s", user.email)
     return reset_token, expires_at
 
 
