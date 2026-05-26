@@ -834,6 +834,9 @@ class ReroutingPipeline:
         return route
 
     def _get_assignment_event(self, session: Session, assignment_id: str) -> Event:
+        # Assignments are stored as events; this helper was used by the
+        # historical `start_trip` helper which has been removed. Keep a
+        # thin lookup in case other code needs to resolve assignment events.
         event = session.get(Event, assignment_id)
         if event is None or event.event_type != EventType.ROUTE_ASSIGNED:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
@@ -879,38 +882,10 @@ class ReroutingPipeline:
             },
         }
 
-    def start_trip(self, session: Session, bus_id: str, driver_id: str, assignment_id: str) -> dict[str, Any]:
-        """Start an active trip using a previously created route assignment."""
-
-        assignment = self._get_assignment_event(session, assignment_id)
-        assignment_meta = json.loads(assignment.event_metadata or "{}")
-        if assignment_meta.get("bus_id") != bus_id or assignment.user_id != driver_id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Assignment does not match trip request")
-
-        bus = self._get_bus(session, bus_id)
-        route = self._get_route(session, assignment.route_id or bus.route_id or "")
-        if bus.route_id != route.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bus is not assigned to the requested route")
-        if self._active_trip_for_bus(session, bus_id) is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bus already has an active trip")
-
-        started_at = _now_utc()
-        trip = ActiveTrip(
-            route_id=route.id,
-            driver_id=driver_id,
-            vehicle_id=bus_id,
-            started_at=started_at,
-            status=TripStatus.ACTIVE,
-        )
-        session.add(trip)
-        session.flush()
-
-        route_polyline = [[stop.stop.latitude, stop.stop.longitude] for stop in route.route_stops]
-        session.commit()
-        return {
-            "trip_id": trip.trip_id,
-            "assigned_route_polyline": route_polyline,
-        }
+    # Trip lifecycle (start) is owned by the GPS tracking service.
+    # The historical in-module 'start_trip' helper was removed to avoid
+    # duplicate trip creation paths. Use the GPS tracking API
+    # POST /api/v1/gps/trips/start which creates the `ActiveTrip` resource.
 
     def _route_stop_sequence(self, session: Session, route_id: str) -> list[RouteStop]:
         query = select(RouteStop).where(RouteStop.route_id == route_id).order_by(RouteStop.sequence.asc())

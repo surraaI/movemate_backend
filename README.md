@@ -97,6 +97,11 @@ Key guarantees:
 - `routes` for route lifecycle (create/list/detail/update/status/soft-delete)
 - `routes/{route_id}/stops` for ordered stop management (add/reorder/remove/list)
 
+**Trip lifecycle**
+
+- **Canonical trip start:** Driver/vehicle trip creation and lifecycle is owned by the GPS tracking API. Start driver trips using the GPS endpoint `POST /api/v1/gps/trips/start` (this creates an `ActiveTrip` used by rerouting and ETA services).
+- **Rerouting role:** The rerouting module reads the driver's active trip and exposes driver-facing reroute actions (suggest, accept, record outcome). Do not create driver trips directly through the rerouting API.
+
 ## Migration Workflow
 
 After model changes:
