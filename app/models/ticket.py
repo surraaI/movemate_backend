@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
@@ -29,6 +29,7 @@ class Ticket(Base):
     origin_stop_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     fare: Mapped[int] = mapped_column(Integer, nullable=False)
     qr_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
     DateTime(timezone=True),
     server_default=func.now(),
@@ -36,6 +37,14 @@ class Ticket(Base):
 )
 
     user: Mapped[User] = relationship("User")
+
+    @property
+    def expires_at(self) -> datetime:
+        return self.created_at + timedelta(hours=24)
+
+    @property
+    def is_expired(self) -> bool:
+        return datetime.now(UTC) >= self.expires_at
 
     @staticmethod
     def scan(
