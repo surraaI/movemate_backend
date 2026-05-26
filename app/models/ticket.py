@@ -29,6 +29,7 @@ class Ticket(Base):
     origin_stop_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     fare: Mapped[int] = mapped_column(Integer, nullable=False)
     qr_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    validated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
     DateTime(timezone=True),
     server_default=func.now(),

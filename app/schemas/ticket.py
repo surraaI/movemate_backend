@@ -45,6 +45,7 @@ class TicketResponse(BaseModel):
     fare: int
     qr_code: str | None = None
     created_at: datetime
+    validated_at: datetime | None = None
     expires_at: datetime
 
     class Config:
