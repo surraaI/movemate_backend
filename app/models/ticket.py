@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
+from app.models.event import Event, EventType
+from app.services.event_service import EventService
+
 if TYPE_CHECKING:
     from app.models.user import User
+    from sqlalchemy.orm import Session
 
 
 class Ticket(Base):
@@ -32,3 +36,32 @@ class Ticket(Base):
 )
 
     user: Mapped[User] = relationship("User")
+
+    @staticmethod
+    def scan(
+        db: "Session",
+        ticket: "Ticket",
+        bus_id: str,
+        stop_id: str,
+        direction: str,
+        timestamp: datetime | None = None,
+    ) -> Event:
+        """Record a ticket scan as a demand signal for the rerouting pipeline."""
+
+        scanned_at = timestamp or datetime.now(UTC)
+        event = EventService.write_event(
+            db,
+            event_type=EventType.TICKET_SCANNED,
+            user_id=ticket.user_id,
+            route_id=ticket.route_id,
+            metadata={
+                "stop_id": stop_id,
+                "bus_id": bus_id,
+                "route_id": ticket.route_id,
+                "timestamp": scanned_at.isoformat(),
+                "direction": direction,
+            },
+            occurred_at=scanned_at,
+        )
+        db.commit()
+        return event
