@@ -115,19 +115,19 @@ class TicketValidationUnitTests(unittest.TestCase):
         db = self.SessionLocal()
         validated_ticket = db.get(Ticket, ticket.id)
         self.assertIsNotNone(validated_ticket)
-        self.assertIsNotNone(validated_ticket.validated_at)
+        self.assertIsNone(validated_ticket.qr_code)
         db.close()
 
         second_response = self.client.post(
             "/api/v1/tickets/validate",
             json={"qr_code": ticket.qr_code, "bus_id": "bus-1"},
         )
-        self.assertEqual(second_response.status_code, 409)
+        self.assertEqual(second_response.status_code, 404)
 
         self.auth_user_id = self.commuter_user.user_id
         self.auth_role = UserRole.COMMUTER
         qr_response = self.client.get(f"/api/v1/tickets/{ticket.id}/qr")
-        self.assertEqual(qr_response.status_code, 409)
+        self.assertEqual(qr_response.status_code, 404)
 
     def test_expired_ticket_cannot_be_validated(self) -> None:
         expired_ticket = self._create_ticket(created_at=datetime.now(UTC) - timedelta(hours=25))
