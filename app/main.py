@@ -12,12 +12,15 @@ from app.db.session import engine
 from app.workers.scheduler import start_scheduler
 from app.db.session import SessionLocal
 from app.db.seed import seed_superadmin
+from rerouting_module import ReroutingPipeline
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup logic
     Base.metadata.create_all(bind=engine)
+    app.state.rerouting_pipeline = ReroutingPipeline()
+    app.state.rerouting_pipeline.ensure_tables(engine)
 
     db = SessionLocal()
     try:
@@ -25,12 +28,16 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    app.state.rerouting_pipeline.start_background_jobs()
     start_scheduler()
 
     yield
     # Shutdown (optional cleanup here)
 
     # Shutdown logic (optional)
+    pipeline = getattr(app.state, "rerouting_pipeline", None)
+    if pipeline is not None:
+        pipeline.shutdown()
     print("Application shutting down")
 
 
