@@ -24,7 +24,9 @@ class EventType:
     PAYMENT_SUCCESS = "payment_success"
     PAYMENT_FAILED = "payment_failed"
     TICKET_CREATED = "ticket_created"
+    TICKET_SCANNED = "ticket_scanned"
     GPS_UPDATE = "gps_update"
+    ROUTE_ASSIGNED = "route_assigned"
 
 
 class Event(Base):

@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.models.ticket import Ticket
 from app.models.payment import Payment
@@ -5,6 +6,7 @@ from app.core.qr import generate_qr
 from app.services.payment_service import initiate_payment
 from app.services.event_service import EventService
 from app.models.event import EventType
+import os
 import uuid
 
 
@@ -73,3 +75,33 @@ def purchase_ticket(db: Session, user_id, data):
     db.commit()
 
     return ticket
+
+
+def get_user_tickets(db: Session, user_id: str):
+    return (
+        db.query(Ticket)
+        .filter(Ticket.user_id == user_id)
+        .order_by(Ticket.created_at.desc())
+        .all()
+    )
+
+
+def get_user_ticket(db: Session, user_id: str, ticket_id: str):
+    ticket = (
+        db.query(Ticket)
+        .filter(Ticket.id == ticket_id, Ticket.user_id == user_id)
+        .first()
+    )
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+    return ticket
+
+
+def get_ticket_qr_path(db: Session, user_id: str, ticket_id: str):
+    ticket = get_user_ticket(db, user_id, ticket_id)
+    if not ticket.qr_code:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QR code not available")
+    qr_path = os.path.abspath(ticket.qr_code)
+    if not os.path.exists(qr_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="QR code file not found")
+    return qr_path

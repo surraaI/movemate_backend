@@ -155,6 +155,65 @@ class GPSTrackingIntegrationTests(unittest.TestCase):
         self.assertEqual(end.status_code, 200)
         self.assertEqual(end.json()["status"], "COMPLETED")
 
+    def test_reusing_same_vehicle_for_next_trip_updates_current_location(self) -> None:
+        first_start = self.client.post(
+            "/api/v1/gps/trips/start",
+            headers=self.driver_headers,
+            json={"routeId": self.route_id},
+        )
+        self.assertEqual(first_start.status_code, 201)
+        first_trip_id = first_start.json()["tripId"]
+
+        first_gps = self.client.post(
+            f"/api/v1/gps/trips/{first_trip_id}/locations",
+            headers=self.driver_headers,
+            json={
+                "latitude": 9.011,
+                "longitude": 38.79,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "speedKph": 31.0,
+                "headingDegrees": 90,
+            },
+        )
+        self.assertEqual(first_gps.status_code, 200)
+
+        first_end = self.client.post(
+            f"/api/v1/gps/trips/{first_trip_id}/end",
+            headers=self.driver_headers,
+            json={"endedAt": datetime.now(UTC).isoformat()},
+        )
+        self.assertEqual(first_end.status_code, 200)
+
+        second_start = self.client.post(
+            "/api/v1/gps/trips/start",
+            headers=self.driver_headers,
+            json={"routeId": self.route_id},
+        )
+        self.assertEqual(second_start.status_code, 201)
+        second_trip_id = second_start.json()["tripId"]
+
+        second_gps = self.client.post(
+            f"/api/v1/gps/trips/{second_trip_id}/locations",
+            headers=self.driver_headers,
+            json={
+                "latitude": 9.021,
+                "longitude": 38.791,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "speedKph": 33.0,
+                "headingDegrees": 92,
+            },
+        )
+        self.assertEqual(second_gps.status_code, 200)
+        self.assertTrue(second_gps.json()["accepted"])
+
+        active = self.client.get(
+            f"/api/v1/gps/routes/{self.route_id}/active-buses",
+            headers=self.commuter_headers,
+        )
+        self.assertEqual(active.status_code, 200)
+        self.assertEqual(len(active.json()["activeBuses"]), 1)
+        self.assertEqual(active.json()["activeBuses"][0]["tripId"], second_trip_id)
+
     def test_reject_duplicate_and_unrealistic_updates(self) -> None:
         start = self.client.post(
             "/api/v1/gps/trips/start",

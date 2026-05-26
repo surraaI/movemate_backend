@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     buses,
     locations,
 )
+from rerouting_router import router as rerouting_router
 
 api_router = APIRouter()
 
@@ -33,3 +34,4 @@ api_router.include_router(ticket.router, prefix="/tickets", tags=["tickets"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Admin Dashboard"])
 api_router.include_router(buses.router, prefix="/buses", tags=["buses"])
 api_router.include_router(locations.router, prefix="/locations", tags=["locations"])
+api_router.include_router(rerouting_router, prefix="/rerouting", tags=["rerouting"])

@@ -48,7 +48,7 @@ class UserOut(BaseModel):
 
     user_id: str = Field(serialization_alias="userId")
     full_name: str = Field(serialization_alias="fullName")
-    email: EmailStr
+    email: str
     phone_number: str = Field(serialization_alias="phoneNumber")
     role: UserRole
     status: UserStatus
