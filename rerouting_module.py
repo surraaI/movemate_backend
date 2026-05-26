@@ -834,6 +834,9 @@ class ReroutingPipeline:
         return route
 
     def _get_assignment_event(self, session: Session, assignment_id: str) -> Event:
+        # Assignments are stored as events; this helper was used by the
+        # historical `start_trip` helper which has been removed. Keep a
+        # thin lookup in case other code needs to resolve assignment events.
         event = session.get(Event, assignment_id)
         if event is None or event.event_type != EventType.ROUTE_ASSIGNED:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
@@ -879,23 +882,10 @@ class ReroutingPipeline:
             },
         }
 
-    def start_trip(self, session: Session, bus_id: str, driver_id: str, assignment_id: str) -> dict[str, Any]:
-        """Deprecated: trip lifecycle is now canonical under GPS tracking.
-
-        Historically this method created an ActiveTrip. Trip lifecycle creation
-        should now be performed via the GPS tracking API (`/api/v1/gps/trips/start`).
-
-        If callers still invoke this method it will raise an informative
-        exception directing them to the GPS tracking API.
-        """
-
-        raise HTTPException(
-            status_code=status.HTTP_410_GONE,
-            detail=(
-                'Deprecated: create driver trips via the GPS tracking API "/api/v1/gps/trips/start" '
-                "(the GPS tracking service is the canonical owner of the trip lifecycle)."
-            ),
-        )
+    # Trip lifecycle (start) is owned by the GPS tracking service.
+    # The historical in-module 'start_trip' helper was removed to avoid
+    # duplicate trip creation paths. Use the GPS tracking API
+    # POST /api/v1/gps/trips/start which creates the `ActiveTrip` resource.
 
     def _route_stop_sequence(self, session: Session, route_id: str) -> list[RouteStop]:
         query = select(RouteStop).where(RouteStop.route_id == route_id).order_by(RouteStop.sequence.asc())
