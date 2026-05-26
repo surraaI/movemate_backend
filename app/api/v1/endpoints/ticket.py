@@ -1,28 +1,32 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-
-from app.models.ticket import Ticket
-from app.schemas.ticket import TicketCreate, TicketScanRequest, TicketScanResponse
-from app.services.ticket_service import create_payment_session, purchase_ticket
-from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.schemas.ticket import TicketCreate, TicketResponse
+from app.core.deps import get_current_user, require_roles
+from app.db.session import get_db
+from app.models.enums import UserRole
+from app.models.payment import Payment
+from app.models.ticket import Ticket
+from app.models.user import User
+from app.models.event import EventType
+from app.schemas.ticket import (
+    TicketCreate,
+    TicketResponse,
+    TicketScanRequest,
+    TicketScanResponse,
+    TicketValidateRequest,
+    TicketValidateResponse,
+)
 from app.services.ticket_service import (
     create_payment_session,
     get_ticket_qr_path,
     get_user_ticket,
     get_user_tickets,
     purchase_ticket,
+    validate_ticket,
 )
 from app.services.payment_service import verify_payment
 from app.services.event_service import EventService
-from app.models.event import EventType
-from app.db.session import get_db
-from app.models.payment import Payment
-from app.core.deps import get_current_user
-from app.models.user import User
 
 router = APIRouter()
 
@@ -119,7 +123,8 @@ def chapa_callback(
         {
             "route_id": payment.route_id,
             "fare": payment.amount,
-            "origin_stop_id": None  # Can be enhanced later with stop data from payment
+            "origin_stop_id": None,  # Can be enhanced later with stop data from payment
+            "generate_qr_code": True,
         }
     )
 
@@ -127,6 +132,32 @@ def chapa_callback(
         "message": "Payment verified",
         "ticket": ticket
     }
+
+
+@router.post("/validate", response_model=TicketValidateResponse)
+def validate_ticket_qr(
+    payload: TicketValidateRequest,
+    current_user: User = Depends(require_roles(UserRole.DRIVER)),
+    db: Session = Depends(get_db),
+) -> TicketValidateResponse:
+    ticket = validate_ticket(
+        db,
+        current_user.user_id,
+        {
+            "ticket_id": payload.ticket_id,
+            "qr_code": payload.qr_code,
+            "bus_id": payload.bus_id,
+        },
+    )
+    return TicketValidateResponse(
+        valid=True,
+        message="Ticket validated successfully",
+        ticket_id=ticket.id,
+        route_id=ticket.route_id,
+        bus_id=payload.bus_id,
+        validated_at=ticket.validated_at,
+        expires_at=ticket.expires_at,
+    )
 
 
 @router.post("/scan", response_model=TicketScanResponse)
