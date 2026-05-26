@@ -22,7 +22,7 @@ def _get_ticket_expiration(ticket: Ticket) -> datetime:
 
 
 def _ensure_ticket_is_active(ticket: Ticket) -> None:
-    if ticket.validated_at is not None:
+    if ticket.qr_code is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ticket already used")
     if datetime.now(UTC) >= _get_ticket_expiration(ticket):
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Ticket expired")
@@ -125,8 +125,16 @@ def validate_ticket(db: Session, validator_user_id: str, data: dict) -> Ticket:
 
     validated_at = datetime.now(UTC)
     ticket.validated_at = validated_at
+    qr_path = ticket.qr_code
+    ticket.qr_code = None
     db.add(ticket)
     db.flush()
+
+    if qr_path and os.path.exists(os.path.abspath(qr_path)):
+        try:
+            os.remove(os.path.abspath(qr_path))
+        except OSError:
+            pass
 
     EventService.write_event(
         db,
