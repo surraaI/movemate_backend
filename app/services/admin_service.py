@@ -1,4 +1,7 @@
 import json
+import logging
+import secrets
+import string
 from datetime import datetime, timedelta
 from sqlalchemy import func, extract
 from sqlalchemy.orm import Session, joinedload
@@ -14,9 +17,18 @@ from app.models.notification import Notification
 from app.models.enums import UserRole, UserStatus, RouteStatus
 from app.models.profile import AdminProfile, DriverProfile
 from app.core.security import hash_password
+from app.services.email_service import EmailService
+
+
+logger = logging.getLogger(__name__)
 
 
 class AdminService:
+    @staticmethod
+    def _generate_temporary_password(length: int = 12) -> str:
+        alphabet = string.ascii_letters + string.digits
+        return "".join(secrets.choice(alphabet) for _ in range(length))
+
     @staticmethod
     def list_users_for_admin(db: Session) -> list[User]:
         return (
@@ -278,10 +290,13 @@ class AdminService:
         if existing:
             raise ValueError("Email already registered")
 
+        temporary_password = AdminService._generate_temporary_password()
+        logger.info("Creating driver account for %s; temporary password generated and will be emailed", email.lower())
+
         user = User(
             full_name=full_name.strip(),
             email=email.lower(),
-            password_hash=hash_password(password),
+            password_hash=hash_password(temporary_password),
             phone_number=phone_number.strip(),
             role=UserRole.DRIVER,
             status=UserStatus.ACTIVE,
@@ -299,6 +314,8 @@ class AdminService:
         )
         db.commit()
         db.refresh(user)
+        EmailService.send_driver_temporary_password_email(user.email, temporary_password)
+        logger.info("Driver onboarding email flow completed for %s", user.email)
         return user
 
     @staticmethod

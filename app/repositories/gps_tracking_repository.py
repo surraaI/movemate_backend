@@ -12,7 +12,13 @@ class GPSTrackingRepository:
         self.db = db
 
     def get_route(self, route_id: str) -> Route | None:
-        return self.db.get(Route, route_id)
+        # Support lookup by primary key `id` or by `route_code` for client convenience.
+        route = self.db.get(Route, route_id)
+        if route is not None:
+            return route
+        # Fallback: try route_code
+        query = select(Route).where(Route.route_code == route_id)
+        return self.db.scalar(query)
 
     def get_active_trip_for_driver(self, driver_id: str) -> ActiveTrip | None:
         query = select(ActiveTrip).where(
@@ -45,11 +51,19 @@ class GPSTrackingRepository:
         payload: BusCurrentLocation,
     ) -> BusCurrentLocation:
         if existing is None:
+            existing = self.db.scalar(
+                select(BusCurrentLocation).where(BusCurrentLocation.vehicle_id == payload.vehicle_id)
+            )
+
+        if existing is None:
             self.db.add(payload)
             self.db.flush()
             self.db.refresh(payload)
             return payload
 
+        existing.trip_id = payload.trip_id
+        existing.route_id = payload.route_id
+        existing.vehicle_id = payload.vehicle_id
         existing.latitude = payload.latitude
         existing.longitude = payload.longitude
         existing.speed_kph = payload.speed_kph
