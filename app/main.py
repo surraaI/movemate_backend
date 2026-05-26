@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.payments import router as chapa_payments_router
 from app.api.v1.router import api_router
 from app.core.config import settings
 import app.models  # noqa: F401
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api/v1")
+    app.include_router(chapa_payments_router)
 
     return app
 

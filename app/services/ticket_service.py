@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 from app.models.ticket import Ticket
 from app.models.payment import Payment
 from app.core.qr import generate_qr
-from app.services.payment_service import initiate_payment
+from app.services.payment_service import initiate_payment, verify_payment
 from app.services.event_service import EventService
 from app.models.event import EventType
+from app.schemas.ticket import TicketResponse
 import os
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -70,6 +71,67 @@ def create_payment_session(db: Session, user_id, data):
     db.commit()
 
     return payment_data
+
+
+def process_chapa_payment_callback(db: Session, trx_ref: str):
+    payment = db.query(Payment).filter(Payment.tx_ref == trx_ref).first()
+
+    if not payment:
+        return {"error": "Payment not found"}
+
+    # 🔴 Prevent duplicate processing
+    if payment.status == "success":
+        return {"message": "Already processed"}
+
+    # ✅ ALWAYS verify with provider
+    verification = verify_payment(trx_ref)
+
+    if verification.get("status") != "success":
+        payment.status = "failed"
+        db.commit()
+
+        # Write payment_failed event
+        EventService.write_event(
+            db,
+            event_type=EventType.PAYMENT_FAILED,
+            user_id=payment.user_id,
+            route_id=payment.route_id,
+            metadata={"tx_ref": trx_ref, "amount": payment.amount},
+        )
+        db.commit()
+
+        return {"message": "Payment failed"}
+
+    # ✅ mark as success BEFORE ticket creation (prevents duplicates)
+    payment.status = "success"
+    db.commit()
+
+    # Write payment_success event
+    EventService.write_event(
+        db,
+        event_type=EventType.PAYMENT_SUCCESS,
+        user_id=payment.user_id,
+        route_id=payment.route_id,
+        metadata={"tx_ref": trx_ref, "amount": payment.amount},
+    )
+    db.commit()
+
+    # 🎟️ create ticket (include origin_stop_id if available)
+    ticket = purchase_ticket(
+        db,
+        payment.user_id,
+        {
+            "route_id": payment.route_id,
+            "fare": payment.amount,
+            "origin_stop_id": None,  # Can be enhanced later with stop data from payment
+            "generate_qr_code": True,
+        },
+    )
+
+    return {
+        "message": "Payment verified",
+        "ticket": TicketResponse.model_validate(ticket).model_dump(mode="json"),
+    }
 
 
 def purchase_ticket(db: Session, user_id, data):
