@@ -880,37 +880,22 @@ class ReroutingPipeline:
         }
 
     def start_trip(self, session: Session, bus_id: str, driver_id: str, assignment_id: str) -> dict[str, Any]:
-        """Start an active trip using a previously created route assignment."""
+        """Deprecated: trip lifecycle is now canonical under GPS tracking.
 
-        assignment = self._get_assignment_event(session, assignment_id)
-        assignment_meta = json.loads(assignment.event_metadata or "{}")
-        if assignment_meta.get("bus_id") != bus_id or assignment.user_id != driver_id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Assignment does not match trip request")
+        Historically this method created an ActiveTrip. Trip lifecycle creation
+        should now be performed via the GPS tracking API (`/api/v1/gps/trips/start`).
 
-        bus = self._get_bus(session, bus_id)
-        route = self._get_route(session, assignment.route_id or bus.route_id or "")
-        if bus.route_id != route.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bus is not assigned to the requested route")
-        if self._active_trip_for_bus(session, bus_id) is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bus already has an active trip")
+        If callers still invoke this method it will raise an informative
+        exception directing them to the GPS tracking API.
+        """
 
-        started_at = _now_utc()
-        trip = ActiveTrip(
-            route_id=route.id,
-            driver_id=driver_id,
-            vehicle_id=bus_id,
-            started_at=started_at,
-            status=TripStatus.ACTIVE,
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail=(
+                'Deprecated: create driver trips via the GPS tracking API "/api/v1/gps/trips/start" '
+                "(the GPS tracking service is the canonical owner of the trip lifecycle)."
+            ),
         )
-        session.add(trip)
-        session.flush()
-
-        route_polyline = [[stop.stop.latitude, stop.stop.longitude] for stop in route.route_stops]
-        session.commit()
-        return {
-            "trip_id": trip.trip_id,
-            "assigned_route_polyline": route_polyline,
-        }
 
     def _route_stop_sequence(self, session: Session, route_id: str) -> list[RouteStop]:
         query = select(RouteStop).where(RouteStop.route_id == route_id).order_by(RouteStop.sequence.asc())
