@@ -222,19 +222,9 @@ def manual_retrain(
     return ManualRetrainResponse(**pipeline.manual_retrain())
 
 
-@router.post("/trips/start", response_model=TripStartResponse, status_code=status.HTTP_201_CREATED)
-def start_trip(
-    payload: TripStartRequest,
-    db: DbSession,
-    pipeline: ReroutingPipelineDep,
-    current_user: DriverUserDep,
-) -> TripStartResponse:
-    """Mark a trip active and return the assigned route polyline."""
-
-    if current_user.user_id != payload.driver_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Driver does not match the authenticated user")
-
-    return TripStartResponse(**pipeline.start_trip(db, payload.bus_id, payload.driver_id, payload.assignment_id))
+# The driver-facing trip start lifecycle lives under the GPS tracking API.
+# Rerouting reads the driver's active trip (created by GPS tracking) and should
+# not expose a separate `trips/start` endpoint to avoid duplicate lifecycles.
 
 
 @router.post("/trips/{trip_id}/gps", response_model=TripGPSUpdateResponse)

@@ -212,6 +212,16 @@ class ReroutingRouterEndpointTests(unittest.TestCase):
         db.add_all([self.current_user, self.admin_user, self.commuter_user])
         db.commit()
 
+        # Add a driver profile for the current_user so GPS start_trip permits driver
+        from app.models.profile import DriverProfile
+
+        db.add(DriverProfile(user_id=self.current_user.user_id, license_number="LIC-123", employee_id="E123", assigned_vehicle_id="bus-1"))
+        # Create a route used for GPS trip start
+        from app.models.route import Route
+
+        db.add(Route(id="route-1", route_code="R-001", route_name="Main Line", price=25.0, distance_km=12.5))
+        db.commit()
+
         self.current_user_id = self.current_user.user_id
         self.admin_user_id = self.admin_user.user_id
         self.commuter_user_id = self.commuter_user.user_id
@@ -287,19 +297,20 @@ class ReroutingRouterEndpointTests(unittest.TestCase):
         self.auth_user_id = self.current_user_id
         self.auth_role = UserRole.DRIVER
 
+        # Start the trip via the GPS tracking API (canonical driver trip lifecycle)
         start_response = self.client.post(
-            "/api/v1/rerouting/trips/start",
+            "/api/v1/gps/trips/start",
             json={
-                "bus_id": "bus-1",
-                "driver_id": self.current_user_id,
-                "assignment_id": "assignment-1",
+                "routeId": "route-1",
+                "vehicleId": "bus-1",
             },
         )
         self.assertEqual(start_response.status_code, 201)
-        self.assertEqual(start_response.json()["trip_id"], "trip-1")
+        trip_id = start_response.json().get("tripId")
+        self.assertIsNotNone(trip_id)
 
         gps_response = self.client.post(
-            "/api/v1/rerouting/trips/trip-1/gps",
+            f"/api/v1/rerouting/trips/{trip_id}/gps",
             json={
                 "latitude": 9.01,
                 "longitude": 38.79,
@@ -326,7 +337,7 @@ class ReroutingRouterEndpointTests(unittest.TestCase):
         self.assertTrue(outcome_response.json()["recorded"])
 
         end_response = self.client.post(
-            "/api/v1/rerouting/trips/trip-1/end",
+            f"/api/v1/rerouting/trips/{trip_id}/end",
             json={
                 "final_latitude": 9.05,
                 "final_longitude": 38.81,
