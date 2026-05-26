@@ -95,6 +95,26 @@ class AccountManagementUnitTests(unittest.TestCase):
 
         db.close()
 
+    def test_user_to_out_accepts_internal_email_addresses(self) -> None:
+        db = self.SessionLocal()
+        user = User(
+            user_id=str(uuid.uuid4()),
+            full_name="Internal User",
+            email="driver@movemate.local",
+            password_hash=hash_password("password123"),
+            phone_number="+251900000001",
+            role=UserRole.DRIVER,
+            status=UserStatus.ACTIVE,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        user_out = user_service.user_to_out(user)
+
+        self.assertEqual(user_out.email, "driver@movemate.local")
+        db.close()
+
     def test_inactive_user_cannot_use_access_token(self) -> None:
         db, user, _refresh_token = self._create_user(status=UserStatus.INACTIVE)
         token = create_access_token(user.user_id, role=user.role.value)
