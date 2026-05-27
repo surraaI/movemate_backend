@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
@@ -7,15 +7,21 @@ from app.db.session import get_db
 from app.models.enums import UserRole
 from app.services.admin_service import AdminService
 from app.services.event_service import EventService
+from app.services.bus_service import BusService
 from app.schemas.admin import (
     DashboardStats,
+    DriverCreatedResponse,
     SystemHealth,
     AssignBusToRouteRequest,
+    RouteOccupancyOut,
     NotificationCreate,
     AdminCreateRequest,
     DriverCreateRequest,
     UserCreatedResponse,
+    UserLookupResponse,
 )
+from app.schemas.user import UserUpdate, UserOut
+from app.schemas.bus import BusUpdate, BusOut
 from app.schemas.event import ActivityTrendOut
 from app.models.user import User
 
@@ -47,6 +53,15 @@ def manage_user(
     return {"message": "User updated successfully"}
 
 
+@router.get("/users/lookup", response_model=UserLookupResponse)
+def lookup_user_by_email(
+    email: str = Query(..., min_length=3),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> UserLookupResponse:
+    return UserLookupResponse(**AdminService.lookup_user_by_email(db, email))
+
+
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     user_id: str,
@@ -60,6 +75,52 @@ def delete_user(
 
     if deleted is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+
+@router.patch("/users/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: str,
+    body: UserUpdate,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> UserOut:
+    updated = AdminService.update_user(db, user_id, body)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return UserOut.model_validate(updated)
+
+
+@router.delete("/users/{user_id}/hard", status_code=status.HTTP_204_NO_CONTENT)
+def hard_delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.SUPERADMIN)),
+) -> Response:
+    ok = AdminService.hard_delete_user(db, user_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found or could not be deleted")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/buses/{bus_id}", response_model=BusOut)
+def update_bus(
+    bus_id: str,
+    body: BusUpdate,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> BusOut:
+    bus = BusService(db).update_bus(bus_id, body)
+    return BusOut.model_validate(bus)
+
+
+@router.delete("/buses/{bus_id}", status_code=status.HTTP_204_NO_CONTENT)
+def hard_delete_bus(
+    bus_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> Response:
+    BusService(db).delete_bus(bus_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # 🔹 Assign bus → route
@@ -93,6 +154,17 @@ def live_buses(
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
 ):
     return AdminService.get_live_buses(db)
+
+
+@router.get("/routes/{route_id}/occupancy", response_model=RouteOccupancyOut)
+def route_occupancy(
+    route_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> RouteOccupancyOut:
+    from app.services.gps_tracking_service import GPSTrackingService
+
+    return GPSTrackingService(db).get_route_bus_occupancy(route_id)
 
 
 # 🔹 Demand analytics
@@ -193,14 +265,14 @@ def create_admin_user(
 
 
 # 🔹 Admin/Superadmin: create drivers
-@router.post("/users/driver", response_model=UserCreatedResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/users/driver", response_model=DriverCreatedResponse, status_code=status.HTTP_201_CREATED)
 def create_driver_user(
     body: DriverCreateRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-) -> UserCreatedResponse:
+) -> DriverCreatedResponse:
     try:
-        user = AdminService.create_driver(
+        user, temporary_password, email_sent = AdminService.create_driver(
             db,
             email=str(body.email),
             password=body.password,
@@ -212,4 +284,10 @@ def create_driver_user(
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    return UserCreatedResponse(user_id=user.user_id, role=user.role.value, email=user.email)
+    return DriverCreatedResponse(
+        user_id=user.user_id,
+        role=user.role.value,
+        email=user.email,
+        temporary_password=temporary_password,
+        email_sent=email_sent,
+    )

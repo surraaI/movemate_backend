@@ -101,7 +101,7 @@ class EmailService:
 
     @staticmethod
     def send_welcome_email(to_email: str, full_name: str | None = None) -> bool:
-        name = full_name or "",
+        name = full_name or ""
         body = (
             f"Welcome to MoveMate {name}!\n\n"
             "Your account has been created successfully. You can sign in using your email and the password you chose during registration.\n\n"

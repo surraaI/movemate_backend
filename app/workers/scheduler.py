@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.repositories.gps_tracking_repository import GPSTrackingRepository
+from app.services.analytics_service import AnalyticsService
 from app.services.eta_service import ETAService
 import logging
 
@@ -53,7 +54,43 @@ def check_bus_arrivals():
     except Exception as e:
         logger.error(f"Error during ETA check: {e}", exc_info=True)
 
+
+def run_analytics_15_min_jobs():
+    """Aggregate demand, detect spikes, and keep reroute outcome checks scheduled."""
+
+    logger.info("Running 15-minute analytics jobs...")
+    try:
+        result = AnalyticsService.run_15_minute_jobs()
+        logger.info("15-minute analytics jobs complete", extra=result)
+    except Exception as e:
+        logger.error(f"Error during 15-minute analytics jobs: {e}", exc_info=True)
+
+
+def run_analytics_hourly_jobs():
+    """Compute hourly ETA accuracy snapshots."""
+
+    logger.info("Running hourly analytics jobs...")
+    try:
+        result = AnalyticsService.run_hourly_jobs()
+        logger.info("Hourly analytics jobs complete", extra=result)
+    except Exception as e:
+        logger.error(f"Error during hourly analytics jobs: {e}", exc_info=True)
+
+
+def run_analytics_midnight_jobs():
+    """Generate previous-day route summaries and health snapshot."""
+
+    logger.info("Running midnight analytics jobs...")
+    try:
+        result = AnalyticsService.run_midnight_jobs()
+        logger.info("Midnight analytics jobs complete", extra=result)
+    except Exception as e:
+        logger.error(f"Error during midnight analytics jobs: {e}", exc_info=True)
+
 scheduler.add_job(check_bus_arrivals, "interval", seconds=30)
+scheduler.add_job(run_analytics_15_min_jobs, "interval", minutes=15, id="analytics_15m", replace_existing=True)
+scheduler.add_job(run_analytics_hourly_jobs, "cron", minute=0, id="analytics_hourly", replace_existing=True)
+scheduler.add_job(run_analytics_midnight_jobs, "cron", hour=0, minute=0, id="analytics_midnight", replace_existing=True)
 
 def start_scheduler():
     scheduler.start()

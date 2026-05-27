@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 
 from app.api.v1.endpoints import (
+    analytics,
     auth,
     gps_tracking,
     health,
@@ -32,6 +33,7 @@ api_router.include_router(route_stops.router, prefix="/routes", tags=["route-sto
 api_router.include_router(gps_tracking.router, prefix="/gps", tags=["gps-tracking"])
 api_router.include_router(ticket.router, prefix="/tickets", tags=["tickets"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Admin Dashboard"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(buses.router, prefix="/buses", tags=["buses"])
 api_router.include_router(locations.router, prefix="/locations", tags=["locations"])
 api_router.include_router(rerouting_router, prefix="/rerouting", tags=["rerouting"])
