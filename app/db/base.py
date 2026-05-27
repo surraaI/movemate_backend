@@ -15,6 +15,7 @@ from app.models.gps_tracking import (
 )
 
 from app.models.bus import Bus
+from app.models.analytics import AnalyticsSnapshot, AnalyticsReroutingEventLog
 from app.models.location import Location
 from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
