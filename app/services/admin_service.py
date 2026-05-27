@@ -226,6 +226,60 @@ class AdminService:
 
         return buses
 
+    # -------------------------
+    # update user by admin
+    # -------------------------
+    @staticmethod
+    def update_user(db: Session, user_id: str, data) -> User | None:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            return None
+
+        if getattr(data, "full_name", None) is not None:
+            user.full_name = data.full_name
+        if getattr(data, "phone_number", None) is not None:
+            user.phone_number = data.phone_number
+
+        if user.role == UserRole.COMMUTER and user.commuter_profile:
+            if getattr(data, "commuter_preferred_route_id", None) is not None:
+                user.commuter_profile.preferred_route_id = data.commuter_preferred_route_id
+            if getattr(data, "commuter_notes", None) is not None:
+                user.commuter_profile.notes = data.commuter_notes
+        elif user.role == UserRole.DRIVER and user.driver_profile:
+            if getattr(data, "driver_license_number", None) is not None:
+                user.driver_profile.license_number = data.driver_license_number
+            if getattr(data, "driver_employee_id", None) is not None:
+                user.driver_profile.employee_id = data.driver_employee_id
+            if getattr(data, "driver_assigned_vehicle_id", None) is not None:
+                user.driver_profile.assigned_vehicle_id = data.driver_assigned_vehicle_id
+        elif user.role == UserRole.ADMIN and user.admin_profile:
+            if getattr(data, "admin_department", None) is not None:
+                user.admin_profile.department = data.admin_department
+            if getattr(data, "admin_permissions", None) is not None:
+                user.admin_profile.permissions = json.dumps(data.admin_permissions)
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+
+    # -------------------------
+    # hard delete user
+    # -------------------------
+    @staticmethod
+    def hard_delete_user(db: Session, user_id: str) -> bool:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            return False
+
+        try:
+            db.delete(user)
+            db.commit()
+            return True
+        except Exception:
+            db.rollback()
+            return False
+
     # 🔹 Demand analytics
     @staticmethod
     def demand_analytics(db):
