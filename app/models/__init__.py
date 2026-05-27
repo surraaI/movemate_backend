@@ -1,3 +1,4 @@
+from app.models.analytics import AnalyticsReroutingEventLog, AnalyticsSnapshot
 from app.models.bus import Bus
 from app.models.eta_prediction import ETAPrediction
 from app.models.event import Event
@@ -16,6 +17,8 @@ from app.models.user import User
 __all__ = [
     "ActiveTrip",
     "AdminProfile",
+    "AnalyticsReroutingEventLog",
+    "AnalyticsSnapshot",
     "Bus",
     "BusCurrentLocation",
     "BusLocationHistory",
