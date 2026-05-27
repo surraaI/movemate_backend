@@ -39,7 +39,8 @@ class Ticket(Base):
 
     @property
     def expires_at(self) -> datetime:
-        return self.created_at + timedelta(hours=24)
+        created_at = self.created_at if self.created_at.tzinfo is not None else self.created_at.replace(tzinfo=UTC)
+        return created_at + timedelta(hours=24)
 
     @property
     def is_expired(self) -> bool:

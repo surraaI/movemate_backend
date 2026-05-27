@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.enums import TripStatus
+from app.models.enums import OccupancyLevel, TripStatus
 
 
 class TripStartRequest(BaseModel):
@@ -116,6 +116,31 @@ class BusLiveLocationOut(BaseModel):
     heading_degrees: int | None = Field(default=None, serialization_alias="headingDegrees")
     gps_timestamp: datetime = Field(serialization_alias="gpsTimestamp")
     received_at: datetime = Field(serialization_alias="receivedAt")
+    estimated_passengers: int = Field(default=0, serialization_alias="estimatedPassengers")
+    bus_capacity: int = Field(default=0, serialization_alias="busCapacity")
+    occupancy_percent: float = Field(default=0.0, serialization_alias="occupancyPercent")
+    occupancy_level: OccupancyLevel = Field(default=OccupancyLevel.LOW, serialization_alias="occupancyLevel")
+    is_high_occupancy: bool = Field(default=False, serialization_alias="isHighOccupancy")
+
+
+class BusOccupancyOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    trip_id: str = Field(serialization_alias="tripId")
+    bus_id: str = Field(serialization_alias="busId")
+    route_id: str = Field(serialization_alias="routeId")
+    estimated_passengers: int = Field(serialization_alias="estimatedPassengers")
+    bus_capacity: int = Field(serialization_alias="busCapacity")
+    occupancy_percent: float = Field(serialization_alias="occupancyPercent")
+    occupancy_level: OccupancyLevel = Field(serialization_alias="occupancyLevel")
+    is_high_occupancy: bool = Field(serialization_alias="isHighOccupancy")
+
+
+class RouteBusOccupancyOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    route_id: str = Field(serialization_alias="routeId")
+    active_buses: list[BusOccupancyOut] = Field(default_factory=list, serialization_alias="activeBuses")
 
 
 class RouteFleetOut(BaseModel):

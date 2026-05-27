@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.enums import UserRole
 from app.services.admin_service import AdminService
 from app.services.event_service import EventService
+from app.services.bus_service import BusService
 from app.schemas.admin import (
     DashboardStats,
     DriverCreatedResponse,
@@ -20,6 +21,7 @@ from app.schemas.admin import (
     UserLookupResponse,
 )
 from app.schemas.user import UserUpdate, UserOut
+from app.schemas.bus import BusUpdate, BusOut
 from app.schemas.event import ActivityTrendOut
 from app.models.user import User
 
@@ -97,6 +99,27 @@ def hard_delete_user(
     ok = AdminService.hard_delete_user(db, user_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found or could not be deleted")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/buses/{bus_id}", response_model=BusOut)
+def update_bus(
+    bus_id: str,
+    body: BusUpdate,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> BusOut:
+    bus = BusService(db).update_bus(bus_id, body)
+    return BusOut.model_validate(bus)
+
+
+@router.delete("/buses/{bus_id}", status_code=status.HTTP_204_NO_CONTENT)
+def hard_delete_bus(
+    bus_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> Response:
+    BusService(db).delete_bus(bus_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
