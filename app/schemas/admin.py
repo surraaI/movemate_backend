@@ -69,3 +69,21 @@ class UserCreatedResponse(BaseModel):
     user_id: str = Field(serialization_alias="userId")
     role: str
     email: EmailStr
+
+
+class DriverCreatedResponse(UserCreatedResponse):
+    temporary_password: str = Field(serialization_alias="temporaryPassword")
+    email_sent: bool = Field(serialization_alias="emailSent")
+
+
+class UserLookupResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    email: EmailStr
+    found: bool
+    user_id: str | None = Field(default=None, serialization_alias="userId")
+    role: str | None = None
+    status: str | None = None
+    created_at: str | None = Field(default=None, serialization_alias="createdAt")
+    last_login: str | None = Field(default=None, serialization_alias="lastLogin")
+    password_flow: str | None = Field(default=None, serialization_alias="passwordFlow")

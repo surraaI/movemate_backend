@@ -15,6 +15,7 @@ from app.core.security import (
     create_refresh_token,
     create_password_reset_token,
     decode_token,
+    normalize_email,
     hash_password,
     verify_password,
 )
@@ -41,7 +42,8 @@ def _issue_tokens(db: Session, user: User) -> TokenPair:
 
 
 def register(db: Session, data: RegisterRequest) -> TokenPair:
-    existing = db.scalar(select(User).where(User.email == data.email))
+    email = normalize_email(str(data.email))
+    existing = db.scalar(select(User).where(User.email == email))
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -49,8 +51,8 @@ def register(db: Session, data: RegisterRequest) -> TokenPair:
         )
 
     user = User(
-        full_name=str(data.email).split("@", maxsplit=1)[0],
-        email=str(data.email).lower(),
+        full_name=email.split("@", maxsplit=1)[0],
+        email=email,
         password_hash=hash_password(data.password),
         phone_number="N/A",
         role=UserRole.COMMUTER,
@@ -81,7 +83,8 @@ def register(db: Session, data: RegisterRequest) -> TokenPair:
 
 
 def login(db: Session, email: str, password: str) -> TokenPair:
-    user = db.scalar(select(User).where(User.email == email.lower()))
+    normalized_email = normalize_email(email)
+    user = db.scalar(select(User).where(User.email == normalized_email))
     if user is None or not verify_password(password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -153,7 +156,8 @@ def logout(db: Session, refresh_token: str) -> None:
 
 
 def forgot_password(db: Session, email: str) -> tuple[str, datetime]:
-    user = db.scalar(select(User).where(User.email == email.lower()))
+    normalized_email = normalize_email(email)
+    user = db.scalar(select(User).where(User.email == normalized_email))
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
