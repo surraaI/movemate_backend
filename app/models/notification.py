@@ -19,7 +19,7 @@ class Notification(Base):
 
     user_id = Column(
         String,
-        ForeignKey("users.user_id"),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
         nullable=False
     )
 

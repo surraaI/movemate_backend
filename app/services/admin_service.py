@@ -3,10 +3,11 @@ import logging
 import secrets
 import string
 from datetime import datetime, timedelta
-from sqlalchemy import func, extract
+from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.services import user_service
+from app.models.event import Event
+from app.models.gps_tracking import ActiveTrip, BusCurrentLocation, BusLocationHistory, CommuterTripLocation
 from app.models.user import User
 from app.models.bus import Bus
 from app.models.route import Route
@@ -14,8 +15,10 @@ from app.models.location import Location
 from app.models.ticket import Ticket
 from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
+from app.models.payment import Payment
 from app.models.enums import UserRole, UserStatus, RouteStatus
-from app.models.profile import AdminProfile, DriverProfile
+from app.models.profile import AdminProfile, CommuterProfile, DriverProfile
+from app.models.refresh_token import RefreshToken
 from app.core.security import hash_password, normalize_email
 from app.services.email_service import EmailService
 
@@ -126,16 +129,15 @@ class AdminService:
         if not user:
             return None
 
-        if acting_user is not None and user.user_id == acting_user.user_id:
-            user_service.delete_account(db, user)
-            db.refresh(user)
-            return user
-
         if user.role == UserRole.SUPERADMIN and (acting_user is None or acting_user.role != UserRole.SUPERADMIN):
             raise ValueError("Superadmin accounts can only be deleted by another superadmin")
 
-        user_service.delete_account(db, user)
-        db.refresh(user)
+        try:
+            AdminService._hard_delete_user_records(db, user)
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return user
     
      # -------------------------
@@ -273,12 +275,32 @@ class AdminService:
             return False
 
         try:
-            db.delete(user)
+            AdminService._hard_delete_user_records(db, user)
             db.commit()
             return True
         except Exception:
             db.rollback()
             return False
+
+    @staticmethod
+    def _hard_delete_user_records(db: Session, user: User) -> None:
+        user_id = user.user_id
+
+        db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete(synchronize_session=False)
+        db.query(Notification).filter(Notification.user_id == user_id).delete(synchronize_session=False)
+        db.query(Payment).filter(Payment.user_id == user_id).delete(synchronize_session=False)
+        db.query(Ticket).filter(Ticket.user_id == user_id).delete(synchronize_session=False)
+        db.query(Event).filter(Event.user_id == user_id).delete(synchronize_session=False)
+        db.query(CommuterTripLocation).filter(CommuterTripLocation.user_id == user_id).delete(synchronize_session=False)
+        trip_ids = select(ActiveTrip.trip_id).where(ActiveTrip.driver_id == user_id)
+        db.query(BusCurrentLocation).filter(BusCurrentLocation.trip_id.in_(trip_ids)).delete(synchronize_session=False)
+        db.query(BusLocationHistory).filter(BusLocationHistory.trip_id.in_(trip_ids)).delete(synchronize_session=False)
+        db.query(ActiveTrip).filter(ActiveTrip.driver_id == user_id).delete(synchronize_session=False)
+        db.query(AdminProfile).filter(AdminProfile.user_id == user_id).delete(synchronize_session=False)
+        db.query(DriverProfile).filter(DriverProfile.user_id == user_id).delete(synchronize_session=False)
+        db.query(CommuterProfile).filter(CommuterProfile.user_id == user_id).delete(synchronize_session=False)
+
+        db.delete(user)
 
     # 🔹 Demand analytics
     @staticmethod
