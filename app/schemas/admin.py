@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import Optional
 
+from app.schemas.gps_tracking import BusOccupancyOut
+
 
 # 🔹 Dashboard
 class DashboardStats(BaseModel):
@@ -40,6 +42,13 @@ class AdvancedMetrics(BaseModel):
     average_delay_seconds: float
     tickets_last_hour: int
     bus_utilization: float
+
+
+class RouteOccupancyOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    route_id: str = Field(serialization_alias="routeId")
+    active_buses: list[BusOccupancyOut] = Field(serialization_alias="activeBuses")
 
 
 class DriverCreateRequest(BaseModel):

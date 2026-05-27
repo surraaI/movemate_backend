@@ -17,6 +17,7 @@ from app.models.payment import Payment
 from app.models.route import Route
 from app.models.stop import Stop
 from app.models.user import User
+from app.models.enums import OccupancyLevel
 from app.models.bus import Bus
 
 ETA_ON_TIME_THRESHOLD_MINUTES = 5.0
@@ -863,10 +864,12 @@ class AnalyticsService:
             service = cls(db)
             aggregate = service.aggregate_demand_and_detect_spikes()
             created = service.sync_rerouting_event_schedule()
+            occupancy_flags = service.sync_high_occupancy_signals()
             due_checked = service.run_due_outcome_checks()
             return {
                 "aggregate": aggregate,
                 "scheduled_reroute_checks": created,
+                "high_occupancy_flags": occupancy_flags,
                 "checked_outcomes": due_checked,
             }
         finally:
@@ -889,3 +892,74 @@ class AnalyticsService:
             return service.generate_daily_route_summary()
         finally:
             db.close()
+
+    def sync_high_occupancy_signals(self, lookback_minutes: int = 15) -> int:
+        now = self._utc_now()
+        window_start = now - timedelta(minutes=lookback_minutes)
+
+        from app.models.gps_tracking import ActiveTrip
+        from app.models.enums import TripStatus
+
+        active_route_ids = [
+            row[0]
+            for row in (
+                self.db.query(ActiveTrip.route_id)
+                .filter(ActiveTrip.status == TripStatus.ACTIVE)
+                .distinct()
+                .all()
+            )
+            if row[0] is not None
+        ]
+
+        from app.services.gps_tracking_service import GPSTrackingService
+
+        gps_service = GPSTrackingService(self.db)
+        created = 0
+
+        for route_id in active_route_ids:
+            occupancy = gps_service.get_route_bus_occupancy(str(route_id))
+            for bus in occupancy.active_buses:
+                if bus.occupancy_level != OccupancyLevel.HIGH:
+                    continue
+
+                existing = (
+                    self.db.query(AnalyticsReroutingEventLog)
+                    .filter(
+                        AnalyticsReroutingEventLog.route_id == str(route_id),
+                        AnalyticsReroutingEventLog.bus_id == bus.bus_id,
+                        AnalyticsReroutingEventLog.trigger_reason == "high_occupancy",
+                        AnalyticsReroutingEventLog.detected_at >= window_start,
+                    )
+                    .first()
+                )
+                if existing is not None:
+                    continue
+
+                created += 1
+                self.db.add(
+                    AnalyticsReroutingEventLog(
+                        id=str(uuid.uuid4()),
+                        reroute_id=None,
+                        route_id=str(route_id),
+                        trip_id=bus.trip_id,
+                        bus_id=bus.bus_id,
+                        trigger_reason="high_occupancy",
+                        admin_approved=False,
+                        status="trigger_requested",
+                        outcome="pending",
+                        detected_at=now,
+                        scheduled_outcome_check_at=now + timedelta(minutes=30),
+                        metrics_payload=json.dumps(
+                            {
+                                "estimated_passengers": bus.estimated_passengers,
+                                "bus_capacity": bus.bus_capacity,
+                                "occupancy_percent": bus.occupancy_percent,
+                                "occupancy_level": bus.occupancy_level.value,
+                            }
+                        ),
+                    )
+                )
+
+        if created:
+            self.db.commit()
+        return created

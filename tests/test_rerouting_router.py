@@ -165,6 +165,8 @@ class ReroutingRouterEndpointTests(unittest.TestCase):
 
         self.app = FastAPI()
         self.app.include_router(rerouting_router, prefix="/api/v1/rerouting")
+        from app.api.v1.endpoints import gps_tracking as gps_endpoint
+        self.app.include_router(gps_endpoint.router, prefix="/api/v1/gps")
         self.app.include_router(ticket_endpoint.router, prefix="/api/v1/tickets")
 
         def override_get_db():
