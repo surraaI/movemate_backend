@@ -142,7 +142,7 @@ class AdminService:
     # assign bus to route
     # -------------------------
     @staticmethod
-    def assign_bus_to_route(db, bus_id: str, route_code: str):
+    def assign_bus_to_route(db, bus_id: str, route_id: str):
         bus = db.query(Bus).filter(Bus.bus_id == bus_id).first()
         if not bus:
             return None, "Bus not found"
