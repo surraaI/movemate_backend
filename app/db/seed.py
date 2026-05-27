@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import hash_password
+from app.core.security import hash_password, normalize_email
 from app.models.enums import UserRole, UserStatus
 from app.models.profile import AdminProfile
 from app.models.user import User
@@ -20,7 +20,7 @@ def seed_superadmin(db: Session) -> User | None:
     if not settings.SUPERADMIN_EMAIL or not settings.SUPERADMIN_PASSWORD:
         return None
 
-    email = settings.SUPERADMIN_EMAIL.strip().lower()
+    email = normalize_email(settings.SUPERADMIN_EMAIL)
     existing = db.scalar(select(User).where(User.email == email))
     if existing is not None:
         return existing

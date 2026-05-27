@@ -16,7 +16,7 @@ from app.models.eta_prediction import ETAPrediction
 from app.models.notification import Notification
 from app.models.enums import UserRole, UserStatus, RouteStatus
 from app.models.profile import AdminProfile, DriverProfile
-from app.core.security import hash_password
+from app.core.security import hash_password, normalize_email
 from app.services.email_service import EmailService
 
 
@@ -46,6 +46,48 @@ class AdminService:
     def _normalize_permissions(permissions: list[str]) -> list[str]:
         values = {permission.strip() for permission in permissions if permission and permission.strip()}
         return sorted(values)
+
+    @staticmethod
+    def _infer_password_flow(user: User) -> str:
+        if user.role == UserRole.SUPERADMIN:
+            return "seed_superadmin"
+        if user.role == UserRole.COMMUTER:
+            return "self_register"
+        if user.role == UserRole.DRIVER:
+            return "admin_create_driver"
+        if user.role == UserRole.ADMIN:
+            return "admin_create_admin"
+        return "unknown"
+
+    @staticmethod
+    def lookup_user_by_email(db: Session, email: str) -> dict:
+        normalized_email = normalize_email(email)
+        user = db.query(User).filter(User.email == normalized_email).first()
+
+        if user is None:
+            return {
+                "email": normalized_email,
+                "found": False,
+                "user_id": None,
+                "role": None,
+                "status": None,
+                "created_at": None,
+                "last_login": None,
+                "password_flow": None,
+            }
+
+        created_at = user.created_at.isoformat() if user.created_at else None
+        last_login = user.last_login.isoformat() if user.last_login else None
+        return {
+            "email": user.email,
+            "found": True,
+            "user_id": user.user_id,
+            "role": user.role.value,
+            "status": user.status.value,
+            "created_at": created_at,
+            "last_login": last_login,
+            "password_flow": AdminService._infer_password_flow(user),
+        }
 
     # 🔹 Dashboard stats
     @staticmethod
@@ -285,17 +327,18 @@ class AdminService:
         license_number: str,
         employee_id: str,
         assigned_vehicle_id: str | None,
-    ) -> User:
-        existing = db.query(User).filter(User.email == email.lower()).first()
+    ) -> tuple[User, str, bool]:
+        normalized_email = normalize_email(email)
+        existing = db.query(User).filter(User.email == normalized_email).first()
         if existing:
             raise ValueError("Email already registered")
 
         temporary_password = AdminService._generate_temporary_password()
-        logger.info("Creating driver account for %s; temporary password generated and will be emailed", email.lower())
+        logger.info("Creating driver account for %s; temporary password generated and will be emailed", normalized_email)
 
         user = User(
             full_name=full_name.strip(),
-            email=email.lower(),
+            email=normalized_email,
             password_hash=hash_password(temporary_password),
             phone_number=phone_number.strip(),
             role=UserRole.DRIVER,
@@ -314,9 +357,13 @@ class AdminService:
         )
         db.commit()
         db.refresh(user)
-        EmailService.send_driver_temporary_password_email(user.email, temporary_password)
+        email_sent = False
+        try:
+            email_sent = EmailService.send_driver_temporary_password_email(user.email, temporary_password)
+        except Exception:
+            logger.exception("Failed to send driver onboarding email for %s", user.email)
         logger.info("Driver onboarding email flow completed for %s", user.email)
-        return user
+        return user, temporary_password, email_sent
 
     @staticmethod
     def create_admin(
@@ -329,14 +376,15 @@ class AdminService:
         department: str,
         permissions: list[str],
     ) -> User:
-        existing = db.query(User).filter(User.email == email.lower()).first()
+        normalized_email = normalize_email(email)
+        existing = db.query(User).filter(User.email == normalized_email).first()
         if existing:
             raise ValueError("Email already registered")
 
         normalized_permissions = AdminService._normalize_permissions(permissions)
         user = User(
             full_name=full_name.strip(),
-            email=email.lower(),
+            email=normalized_email,
             password_hash=hash_password(password),
             phone_number=phone_number.strip(),
             role=UserRole.ADMIN,

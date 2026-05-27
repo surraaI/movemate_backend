@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 import uuid
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -17,6 +18,7 @@ from app.models.enums import UserRole, UserStatus
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services import auth_service, user_service
+from app.services.admin_service import AdminService
 from app.core.security import get_current_user
 
 
@@ -93,6 +95,72 @@ class AccountManagementUnitTests(unittest.TestCase):
         db.refresh(refresh_token)
         self.assertIsNotNone(refresh_token.revoked_at)
 
+        db.close()
+
+    def test_login_accepts_whitespace_and_case_variations_in_email(self) -> None:
+        db, user, _refresh_token = self._create_user()
+
+        pair = auth_service.login(db, "  USER@EXAMPLE.COM  ", "password123")
+
+        self.assertTrue(pair.access_token)
+        self.assertTrue(pair.refresh_token)
+        refreshed = db.get(User, user.user_id)
+        self.assertIsNotNone(refreshed)
+        self.assertIsNotNone(refreshed.last_login)
+
+        db.close()
+
+    def test_admin_lookup_reports_existing_user_and_creation_flow(self) -> None:
+        db, user, _refresh_token = self._create_user()
+
+        result = AdminService.lookup_user_by_email(db, "USER@example.com")
+
+        self.assertTrue(result["found"])
+        self.assertEqual(result["email"], user.email)
+        self.assertEqual(result["role"], UserRole.COMMUTER.value)
+        self.assertEqual(result["password_flow"], "self_register")
+
+        db.close()
+
+    def test_create_driver_returns_temporary_password_and_email_status(self) -> None:
+        db = self.SessionLocal()
+
+        with patch("app.services.admin_service.EmailService.send_driver_temporary_password_email", return_value=True):
+            user, temporary_password, email_sent = AdminService.create_driver(
+                db,
+                email="driver@example.com",
+                password="ignored-password",
+                full_name="Driver One",
+                phone_number="+251900000002",
+                license_number="LIC-12345",
+                employee_id="EMP-12345",
+                assigned_vehicle_id=None,
+            )
+
+        self.assertTrue(email_sent)
+        self.assertTrue(verify_password(temporary_password, user.password_hash))
+        self.assertEqual(user.email, "driver@example.com")
+        self.assertEqual(user.role, UserRole.DRIVER)
+        db.close()
+
+    def test_create_driver_continues_when_email_send_fails(self) -> None:
+        db = self.SessionLocal()
+
+        with patch("app.services.admin_service.EmailService.send_driver_temporary_password_email", side_effect=RuntimeError("smtp down")):
+            user, temporary_password, email_sent = AdminService.create_driver(
+                db,
+                email="driver2@example.com",
+                password="ignored-password",
+                full_name="Driver Two",
+                phone_number="+251900000003",
+                license_number="LIC-54321",
+                employee_id="EMP-54321",
+                assigned_vehicle_id=None,
+            )
+
+        self.assertFalse(email_sent)
+        self.assertTrue(verify_password(temporary_password, user.password_hash))
+        self.assertEqual(user.email, "driver2@example.com")
         db.close()
 
     def test_user_to_out_accepts_internal_email_addresses(self) -> None:

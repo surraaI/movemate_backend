@@ -9,12 +9,14 @@ from app.services.admin_service import AdminService
 from app.services.event_service import EventService
 from app.schemas.admin import (
     DashboardStats,
+    DriverCreatedResponse,
     SystemHealth,
     AssignBusToRouteRequest,
     NotificationCreate,
     AdminCreateRequest,
     DriverCreateRequest,
     UserCreatedResponse,
+    UserLookupResponse,
 )
 from app.schemas.event import ActivityTrendOut
 from app.models.user import User
@@ -45,6 +47,15 @@ def manage_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     return {"message": "User updated successfully"}
+
+
+@router.get("/users/lookup", response_model=UserLookupResponse)
+def lookup_user_by_email(
+    email: str = Query(..., min_length=3),
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> UserLookupResponse:
+    return UserLookupResponse(**AdminService.lookup_user_by_email(db, email))
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -193,14 +204,14 @@ def create_admin_user(
 
 
 # 🔹 Admin/Superadmin: create drivers
-@router.post("/users/driver", response_model=UserCreatedResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/users/driver", response_model=DriverCreatedResponse, status_code=status.HTTP_201_CREATED)
 def create_driver_user(
     body: DriverCreateRequest,
     db: Session = Depends(get_db),
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
-) -> UserCreatedResponse:
+) -> DriverCreatedResponse:
     try:
-        user = AdminService.create_driver(
+        user, temporary_password, email_sent = AdminService.create_driver(
             db,
             email=str(body.email),
             password=body.password,
@@ -212,4 +223,10 @@ def create_driver_user(
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-    return UserCreatedResponse(user_id=user.user_id, role=user.role.value, email=user.email)
+    return DriverCreatedResponse(
+        user_id=user.user_id,
+        role=user.role.value,
+        email=user.email,
+        temporary_password=temporary_password,
+        email_sent=email_sent,
+    )
