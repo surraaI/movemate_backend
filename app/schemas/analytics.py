@@ -10,6 +10,10 @@ class DashboardSummaryOut(BaseModel):
     todays_revenue: float
     eta_accuracy_percent: float
     system_health_score: float
+    offline_buses: int
+    average_delay_seconds: float
+    tickets_last_hour: int
+    bus_utilization: float
 
 
 class RoutePerformanceItem(BaseModel):

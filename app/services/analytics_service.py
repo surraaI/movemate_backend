@@ -17,6 +17,7 @@ from app.models.payment import Payment
 from app.models.route import Route
 from app.models.stop import Stop
 from app.models.user import User
+from app.models.bus import Bus
 
 ETA_ON_TIME_THRESHOLD_MINUTES = 5.0
 TRIP_ON_TIME_THRESHOLD_MINUTES = 5.0
@@ -121,11 +122,43 @@ class AnalyticsService:
         eta = self.get_eta_accuracy_breakdown(day_start, now)
         health = self.get_system_health_metrics(window_hours=24)
 
+        # Additional dashboard metrics
+        total_buses = int(self.db.query(func.count(Bus.bus_id)).scalar() or 0)
+
+        # Offline buses: buses without a recent location update (last 5 minutes)
+        recent_threshold = now - timedelta(minutes=5)
+        recent_locations_count = (
+            self.db.query(func.count(func.distinct(BusCurrentLocation.vehicle_id)))
+            .filter(BusCurrentLocation.updated_at >= recent_threshold)
+            .scalar()
+            or 0
+        )
+        offline_buses = max(total_buses - int(recent_locations_count), 0)
+
+        # Average delay across all routes (weighted by trips) in seconds
+        route_perf = self.get_route_performance(day_start, now)
+        total_trips = sum(r.get("total_trips", 0) for r in route_perf.get("routes", []))
+        weighted_delay_minutes = sum(
+            (r.get("average_delay_minutes", 0.0) * r.get("total_trips", 0)) for r in route_perf.get("routes", [])
+        )
+        average_delay_seconds = (weighted_delay_minutes / total_trips * 60.0) if total_trips else 0.0
+
+        # Tickets in the last hour
+        one_hour_start = now - timedelta(hours=1)
+        tickets_last_hour = len(self._demand_events(one_hour_start, now))
+
+        # Bus utilization: percent of fleet currently on active trips
+        bus_utilization = (int(active_buses) / total_buses * 100.0) if total_buses else 0.0
+
         return {
             "active_buses": int(active_buses),
             "todays_revenue": round(todays_revenue, 2),
             "eta_accuracy_percent": round(float(eta["overall_accuracy_percent"]), 2),
             "system_health_score": round(float(health["system_health_score"]), 2),
+            "offline_buses": int(offline_buses),
+            "average_delay_seconds": round(float(average_delay_seconds), 2),
+            "tickets_last_hour": int(tickets_last_hour),
+            "bus_utilization": round(float(bus_utilization), 2),
         }
 
     def get_route_performance(self, period_start: datetime, period_end: datetime) -> dict:
