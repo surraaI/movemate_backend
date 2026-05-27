@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
@@ -12,12 +12,14 @@ from app.schemas.admin import (
     DriverCreatedResponse,
     SystemHealth,
     AssignBusToRouteRequest,
+    RouteOccupancyOut,
     NotificationCreate,
     AdminCreateRequest,
     DriverCreateRequest,
     UserCreatedResponse,
     UserLookupResponse,
 )
+from app.schemas.user import UserUpdate, UserOut
 from app.schemas.event import ActivityTrendOut
 from app.models.user import User
 
@@ -73,6 +75,31 @@ def delete_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 
+@router.patch("/users/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: str,
+    body: UserUpdate,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> UserOut:
+    updated = AdminService.update_user(db, user_id, body)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return UserOut.model_validate(updated)
+
+
+@router.delete("/users/{user_id}/hard", status_code=status.HTTP_204_NO_CONTENT)
+def hard_delete_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.SUPERADMIN)),
+) -> Response:
+    ok = AdminService.hard_delete_user(db, user_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found or could not be deleted")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 # 🔹 Assign bus → route
 @router.post("/assignments/bus-route")
 def assign_bus(
@@ -104,6 +131,17 @@ def live_buses(
     _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
 ):
     return AdminService.get_live_buses(db)
+
+
+@router.get("/routes/{route_id}/occupancy", response_model=RouteOccupancyOut)
+def route_occupancy(
+    route_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERADMIN)),
+) -> RouteOccupancyOut:
+    from app.services.gps_tracking_service import GPSTrackingService
+
+    return GPSTrackingService(db).get_route_bus_occupancy(route_id)
 
 
 # 🔹 Demand analytics
