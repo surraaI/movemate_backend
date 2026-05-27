@@ -25,7 +25,7 @@ class ActiveTrip(Base):
         String(36), ForeignKey("routes.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     driver_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.user_id", ondelete="RESTRICT"), nullable=False, index=True
+        String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
     )
     vehicle_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[TripStatus] = mapped_column(
