@@ -38,7 +38,7 @@ class Event(Base):
     )
     event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.user_id"), nullable=True, index=True
+        String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True, index=True
     )
     route_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     trip_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)

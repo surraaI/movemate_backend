@@ -20,7 +20,7 @@ class Payment(Base):
     )
     tx_ref: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.user_id"), nullable=False, index=True
+        String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True
     )
     route_id: Mapped[str] = mapped_column(String(36), nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
